@@ -28,6 +28,7 @@ def codespell_scan():
             print("No spelling errors found")
     except subprocess.CalledProcessError as ex:
         print(ex)
+        sys.exit(1)
 
 
 codespell_scan()
