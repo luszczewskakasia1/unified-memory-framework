@@ -6,7 +6,12 @@
 """
 
 import subprocess  # nosec B404
+import logging
 import sys
+
+logging.basicConfig(
+    level=logging.INFO, format="[%(levelname)s]: [%(asctime)s] %(message)s"
+)
 
 
 def codespell_scan():
@@ -19,14 +24,16 @@ def codespell_scan():
                 "--skip=./.git,./.venv,./.github/workflows/.spellcheck-conf.toml,./.github/scripts/run-codespell.py",
             ],
             text=True,
+            stdout=subprocess.PIPE,
         )
         if codespell_result.returncode != 0:
-            print(codespell_result)
+            for line in codespell_result.stdout.splitlines():
+                logging.error(line.strip())
             sys.exit(1)
         else:
-            print("No spelling errors found")
+            logging.info("No spelling errors found")
     except subprocess.CalledProcessError as ex:
-        print(ex)
+        logging.error(ex)
         sys.exit(1)
 
 
