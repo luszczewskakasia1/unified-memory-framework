@@ -16,7 +16,7 @@ def codespell_scan():
                 "codespell",
                 "-H",
                 "--quiet-level=3",
-                "--skip=*.supp,./.git,./.github/scripts/run-codespell.py,./.github/workflows/.spellcheck-conf.toml",
+                "--skip=*.supp,./.venv,./.git,./.github/scripts/run-codespell.py,./.github/workflows/.spellcheck-conf.toml",
                 '--ignore-words-list="ASSER,Tne,ba,BA"',
             ],
             text=True,
