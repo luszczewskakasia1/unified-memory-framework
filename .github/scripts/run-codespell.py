@@ -21,7 +21,7 @@ def codespell_scan():
                 "codespell",
                 "-H",
                 "--quiet-level=3",
-                "--skip=./.git,./.venv,./.github/workflows/.spellcheck-conf.toml,./.github/scripts/run-codespell.py",
+                "--skip=./.git,./.venv,./.github/workflows/.spellcheck-conf.toml",
             ],
             text=True,
             stdout=subprocess.PIPE,
