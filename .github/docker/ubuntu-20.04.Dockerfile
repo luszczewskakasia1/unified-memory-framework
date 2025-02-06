@@ -1,10 +1,10 @@
-# Copyright (C) 2024 Intel Corporation
+# Copyright (C) 2024-2025 Intel Corporation
 # Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 #
 # Dockerfile - a 'recipe' for Docker to build an image of ubuntu-based
-#              environment for building the Unified Memory Framework project.
+#	  environment for building the Unified Memory Framework project.
 #
 
 # Pull base image ("20.04")
@@ -50,12 +50,25 @@ RUN apt-get update \
  && rm -rf /var/lib/apt/lists/* \
  && apt-get clean all
 
+# Install hwloc
+COPY .github/scripts/install_hwloc.sh /opt/umf/install_hwloc.sh
+RUN apt-get update \
+	&& apt-get install -y dos2unix libtool \
+	&& dos2unix /opt/umf/install_hwloc.sh \
+	&& bash -x /opt/umf/install_hwloc.sh \
+	&& ldconfig \
+	&& rm -f /opt/umf/install_hwloc.sh
+
+# Install valgrind
+RUN apt-get update && \
+	apt-get install -y valgrind cmake hwloc libhwloc-dev libnuma-dev libtbb-dev
+
 # Prepare a dir (accessible by anyone)
-RUN mkdir --mode 777 /opt/umf/
+RUN mkdir -p --mode 777 /opt/umf/
 
 # Additional dependencies (installed via pip)
 COPY third_party/requirements.txt /opt/umf/requirements.txt
-RUN pip3 install --no-cache-dir -r /opt/umf/requirements.txt
+# RUN pip3 install --no-cache-dir -r /opt/umf/requirements.txt
 
 # Add a new (non-root) 'test_user'
 ENV USER test_user
