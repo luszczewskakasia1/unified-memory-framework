@@ -4,8 +4,8 @@ name: Nightly
 # This job is run at 00:00 UTC every day or on demand.
 on:
   workflow_dispatch:
-  schedule:
-    - cron:  '0 0 * * *'
+  # schedule:
+  #   - cron:  '0 0 * * *'
 
 permissions:
   contents: read
