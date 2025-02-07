@@ -117,7 +117,6 @@ list(APPEND UMF_OPTIONS_LIST UMF_PROXY_LIB_BASED_ON_POOL)
 # Setup required variables, definitions; fetch dependencies; include
 # sub_directories based on build options; set flags; etc.
 # --------------------------------------------------------------------------- #
-
 if(UMF_BUILD_TESTS
    AND DEFINED ENV{CI}
    AND NOT UMF_TESTS_FAIL_ON_SKIP)
@@ -129,6 +128,7 @@ if(UMF_BUILD_TESTS
 endif()
 
 if(${CMAKE_SYSTEM_NAME} MATCHES "Linux")
+    message("Wow")
     set(LINUX TRUE)
     set(OS_NAME "linux")
 elseif(${CMAKE_SYSTEM_NAME} MATCHES "Windows")
@@ -206,11 +206,13 @@ else()
         WORKING_DIRECTORY ${jemalloc_targ_SOURCE_DIR}
         OUTPUT ${jemalloc_targ_SOURCE_DIR}/lib/libjemalloc.a
         DEPENDS ${jemalloc_targ_SOURCE_DIR}/Makefile)
+        message("Make is done!")
     add_custom_command(
         COMMAND make install
         WORKING_DIRECTORY ${jemalloc_targ_SOURCE_DIR}
         OUTPUT ${jemalloc_targ_BINARY_DIR}/lib/libjemalloc.a
         DEPENDS ${jemalloc_targ_SOURCE_DIR}/lib/libjemalloc.a)
+        message("Were here!")
 
     add_custom_target(jemalloc_prod
                       DEPENDS ${jemalloc_targ_BINARY_DIR}/lib/libjemalloc.a)
@@ -222,6 +224,7 @@ else()
     set(JEMALLOC_LIBRARY_DIRS ${jemalloc_targ_BINARY_DIR}/lib)
     set(JEMALLOC_INCLUDE_DIRS ${jemalloc_targ_BINARY_DIR}/include)
     set(JEMALLOC_LIBRARIES ${jemalloc_targ_BINARY_DIR}/lib/libjemalloc.a)
+    message("Jemalloc is here")
 endif()
 
 if(JEMALLOC_FOUND OR JEMALLOC_LIBRARIES)
@@ -364,6 +367,7 @@ endif()
 # Fetch L0 loader only if needed i.e.: if building L0 provider is ON and L0
 # headers are not provided by the user (via setting UMF_LEVEL_ZERO_INCLUDE_DIR).
 if(UMF_BUILD_LEVEL_ZERO_PROVIDER AND (NOT UMF_LEVEL_ZERO_INCLUDE_DIR))
+    message("This is a simple message.")
     include(FetchContent)
 
     set(LEVEL_ZERO_LOADER_REPO "https://github.com/oneapi-src/level-zero.git")
@@ -806,6 +810,7 @@ if(Python3_FOUND)
         COMMAND UMF_VERSION=${UMF_CMAKE_VERSION} ${Python3_EXECUTABLE}
                 ${UMF_CMAKE_SOURCE_DIR}/docs/generate_docs.py
         COMMENT "Generate HTML documentation using Doxygen")
+        message(Done!)
 endif()
 
 # --------------------------------------------------------------------------- #

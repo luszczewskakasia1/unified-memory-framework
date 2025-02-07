@@ -166,6 +166,7 @@ if(UMF_BUILD_SHARED_LIBRARY)
         PROPERTIES RUNTIME_OUTPUT_DIRECTORY ${CMAKE_UMF_OUTPUT_DIRECTORY}
                    VERSION ${PROJECT_VERSION}
                    SOVERSION ${PROJECT_VERSION_MAJOR})
+                   message("UMF version in sources")
 else()
     add_umf_library(
         NAME umf
