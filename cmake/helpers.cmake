@@ -1,4 +1,4 @@
-# Copyright (C) 2023-2024 Intel Corporation
+# Copyright (C) 2023-2025 Intel Corporation
 # Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
@@ -121,12 +121,12 @@ function(set_version_variables)
         return()
     endif()
 
-    # v1.5.0-dev - we're on a development tag -> UMF ver: "1.5.0-dev"
-    string(REGEX MATCHALL "\^v([0-9]+\.[0-9]+\.[0-9]+)-dev\$" MATCHES
+    # v1.5.0-dev1 - we're on a development tag -> UMF ver: "1.5.0-dev1"
+    string(REGEX MATCHALL "\^v([0-9]+\.[0-9]+\.[0-9]+)-(dev[0-9]?)\$" MATCHES
                  ${GIT_VERSION})
     if(MATCHES)
         set(UMF_VERSION
-            "${CMAKE_MATCH_1}-dev"
+            "${CMAKE_MATCH_1}-${CMAKE_MATCH_2}"
             PARENT_SCOPE)
         set(UMF_CMAKE_VERSION
             "${CMAKE_MATCH_1}"
@@ -157,12 +157,12 @@ function(set_version_variables)
         return()
     endif()
 
-    # v1.5.0-dev-19-gb8f7a32 -> UMF ver: "1.5.0-dev.git19.gb8f7a32"
-    string(REGEX MATCHALL "v([0-9.]*)-dev-([0-9]*)-([0-9a-g]*)" MATCHES
+    # v1.5.0-dev2-19-gb8f7a32 -> UMF ver: "1.5.0-dev2.git19.gb8f7a32"
+    string(REGEX MATCHALL "v([0-9.]*)-(dev[0-9]?)-([0-9]*)-([0-9a-g]*)" MATCHES
                  ${GIT_VERSION})
     if(MATCHES)
         set(UMF_VERSION
-            "${CMAKE_MATCH_1}-dev.git${CMAKE_MATCH_2}.${CMAKE_MATCH_3}"
+            "${CMAKE_MATCH_1}-${CMAKE_MATCH_2}.git${CMAKE_MATCH_3}.${CMAKE_MATCH_4}"
             PARENT_SCOPE)
         set(UMF_CMAKE_VERSION
             "${CMAKE_MATCH_1}"
@@ -232,9 +232,9 @@ function(add_umf_target_compile_options name)
             PRIVATE -fPIC
                     -Wall
                     -Wextra
-                    -Wpedantic
                     -Wformat-security
-                    -Wcast-qual
+                    -Wno-cast-qual # TODO: remove this when const qualifier drop
+                                   # will be solved in CTL
                     $<$<CXX_COMPILER_ID:GNU>:-fdiagnostics-color=auto>)
         if(CMAKE_BUILD_TYPE STREQUAL "Release")
             target_compile_definitions(${name} PRIVATE -D_FORTIFY_SOURCE=2)

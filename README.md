@@ -18,7 +18,7 @@ For a quick introduction to UMF usage, please see
 [examples](https://oneapi-src.github.io/unified-memory-framework/examples.html)
 documentation, which includes the code of the
 [basic example](https://github.com/oneapi-src/unified-memory-framework/blob/main/examples/basic/basic.c).
-The are also more advanced that allocates USM memory from the 
+The are also more advanced that allocates USM memory from the
 [Level Zero device](https://github.com/oneapi-src/unified-memory-framework/blob/main/examples/level_zero_shared_memory/level_zero_shared_memory.c)
 using the Level Zero API and UMF Level Zero memory provider and [CUDA device](https://github.com/oneapi-src/unified-memory-framework/blob/main/examples/cuda_shared_memory/cuda_shared_memory.c)
 using the CUDA API and UMF CUDA memory provider.
@@ -28,19 +28,23 @@ using the CUDA API and UMF CUDA memory provider.
 ### Requirements
 
 Required packages:
+
 - libhwloc-dev >= 2.3.0 (Linux) / hwloc >= 2.3.0 (Windows)
 - C compiler
 - [CMake](https://cmake.org/) >= 3.14.0
 
 For development and contributions:
+
 - clang-format-15.0 (can be installed with `python -m pip install clang-format==15.0.7`)
 - cmake-format-0.6 (can be installed with `python -m pip install cmake-format==0.6.13`)
 - black (can be installed with `python -m pip install black==24.3.0`)
 
 For building tests, multithreaded benchmarks and Disjoint Pool:
+
 - C++ compiler with C++17 support
 
 For Level Zero memory provider tests:
+
 - Level Zero headers and libraries
 - compatible GPU with installed driver
 
@@ -50,8 +54,8 @@ Executable and binaries will be in **build/bin**.
 The `{build_config}` can be either `Debug` or `Release`.
 
 ```bash
-$ cmake -B build -DCMAKE_BUILD_TYPE={build_config}
-$ cmake --build build -j $(nproc)
+cmake -B build -DCMAKE_BUILD_TYPE={build_config}
+cmake --build build -j $(nproc)
 ```
 
 ### Windows
@@ -60,8 +64,8 @@ Generating Visual Studio Project. EXE and binaries will be in **build/bin/{build
 The `{build_config}` can be either `Debug` or `Release`.
 
 ```bash
-$ cmake -B build -G "Visual Studio 15 2017 Win64"
-$ cmake --build build --config {build_config} -j $Env:NUMBER_OF_PROCESSORS
+cmake -B build -G "Visual Studio 15 2017 Win64"
+cmake --build build --config {build_config} -j $Env:NUMBER_OF_PROCESSORS
 ```
 
 ### Benchmark
@@ -73,20 +77,22 @@ UMF also provides multithreaded benchmarks that can be enabled by setting both
 `UMF_BUILD_BENCHMARKS` and `UMF_BUILD_BENCHMARKS_MT` CMake
 configuration flags to `ON`. Multithreaded benchmarks require a C++ support.
 
-The Scalable Pool requirements can be found in the relevant 'Memory Pool 
+The Scalable Pool requirements can be found in the relevant 'Memory Pool
 managers' section below.
 
 ### Sanitizers
 
 List of sanitizers available on Linux:
+
 - AddressSanitizer
 - UndefinedBehaviorSanitizer
 - ThreadSanitizer
-   - Is mutually exclusive with other sanitizers.
+  - Is mutually exclusive with other sanitizers.
 - MemorySanitizer
-   - Requires linking against MSan-instrumented libraries to prevent false positive reports. More information [here](https://github.com/google/sanitizers/wiki/MemorySanitizerLibcxxHowTo).
+  - Requires linking against MSan-instrumented libraries to prevent false positive reports. More information [here](https://github.com/google/sanitizers/wiki/MemorySanitizerLibcxxHowTo).
 
 List of sanitizers available on Windows:
+
 - AddressSanitizer
 
 Listed sanitizers can be enabled with appropriate [CMake options](#cmake-standard-options).
@@ -117,55 +123,62 @@ List of options provided by CMake:
 | UMF_USE_MSAN | Enable MemorySanitizer checks | ON/OFF | OFF |
 | UMF_USE_VALGRIND | Enable Valgrind instrumentation | ON/OFF | OFF |
 | UMF_USE_COVERAGE | Build with coverage enabled (Linux only) | ON/OFF | OFF |
-| UMF_LINK_HWLOC_STATICALLY | Link UMF with HWLOC library statically (Windows+Release only) | ON/OFF | OFF |
+| UMF_LINK_HWLOC_STATICALLY | Link UMF with HWLOC library statically (proxy library will be disabled on Windows+Debug build) | ON/OFF | OFF |
 | UMF_DISABLE_HWLOC | Disable features that requires hwloc (OS provider, memory targets, topology discovery) | ON/OFF | OFF |
 
 ## Architecture: memory pools and providers
 
-A UMF memory pool is a combination of a pool allocator and a memory provider. A memory provider is responsible for coarse-grained memory allocations and management of memory pages, while the pool allocator controls memory pooling and handles fine-grained memory allocations.
+A UMF memory pool is a combination of a pool allocator and a memory provider. A memory provider is responsible for
+coarse-grained memory allocations and management of memory pages, while the pool allocator controls memory pooling
+and handles fine-grained memory allocations.
 
 Pool allocator can leverage existing allocators (e.g. jemalloc or tbbmalloc) or be written from scratch.
 
-UMF comes with predefined pool allocators (see include/pool) and providers (see include/provider). UMF can also work with user-defined pools and providers that implement a specific interface (see include/umf/memory_pool_ops.h and include/umf/memory_provider_ops.h).
+UMF comes with predefined pool allocators (see [`include/umf/pools`](include/umf/pools)) and providers
+(see [`include/umf/providers`](include/umf/providers)). UMF can also work with user-defined pools and
+providers that implement a specific interface (see [`include/umf/memory_pool_ops.h`](include/umf/memory_pool_ops.h)
+and [`include/umf/memory_provider_ops.h`](include/umf/memory_provider_ops.h)).
 
-More detailed documentation is available here: https://oneapi-src.github.io/unified-memory-framework/
+More detailed documentation is available here: <https://oneapi-src.github.io/unified-memory-framework/>
 
 ### Memory providers
 
-#### Coarse Provider
+#### Fixed memory provider
 
-A memory provider that can provide memory from:
-1) a given pre-allocated buffer (the fixed-size memory provider option) or
-2) from an additional upstream provider (e.g. provider that does not support the free() operation
-   like the File memory provider or the DevDax memory provider - see below).
+A memory provider that can provide memory from a given pre-allocated buffer.
 
 #### OS memory provider
 
 A memory provider that provides memory from an operating system.
 
 OS memory provider supports two types of memory mappings (set by the `visibility` parameter):
+
 1) private memory mapping (`UMF_MEM_MAP_PRIVATE`)
 2) shared memory mapping (`UMF_MEM_MAP_SHARED` - supported on Linux only yet)
 
 IPC API requires the `UMF_MEM_MAP_SHARED` memory `visibility` mode
 (`UMF_RESULT_ERROR_INVALID_ARGUMENT` is returned otherwise).
 
-IPC API uses the file descriptor duplication. It requires using `pidfd_getfd(2)` to obtain
-a duplicate of another process's file descriptor (`pidfd_getfd(2)` is supported since Linux 5.6).
-Permission to duplicate another process's file descriptor is governed by a ptrace access mode
-`PTRACE_MODE_ATTACH_REALCREDS` check (see `ptrace(2)`) that can be changed using
-the `/proc/sys/kernel/yama/ptrace_scope` interface in the following way:
+IPC API uses file descriptor duplication, which requires the `pidfd_getfd(2)` system call to obtain
+a duplicate of another process's file descriptor. This system call is supported since Linux 5.6.
+Required permission ("restricted ptrace") is governed by the `PTRACE_MODE_ATTACH_REALCREDS` check
+(see `ptrace(2)`). To allow file descriptor duplication in a binary that opens IPC handle, you can call
+`prctl(PR_SET_PTRACER, ...)` in the producer binary that gets the IPC handle.
+Alternatively you can change the `ptrace_scope` globally in the system, e.g.:
+
 ```sh
-$ sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope"
+sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope"
 ```
 
 There are available two mechanisms for the shared memory mapping:
+
 1) a named shared memory object (used if the `shm_name` parameter is not NULL) or
 2) an anonymous file descriptor (used if the `shm_name` parameter is NULL)
 
 The `shm_name` parameter should be a null-terminated string of up to NAME_MAX (i.e., 255) characters none of which are slashes.
 
 An anonymous file descriptor for the shared memory mapping will be created using:
+
 1) `memfd_secret()` syscall - (if it is implemented and) if the `UMF_MEM_FD_FUNC` environment variable does not contain the "memfd_create" string or
 2) `memfd_create()` syscall - otherwise (and if it is implemented).
 
@@ -175,21 +188,23 @@ IPC API on Linux requires the `PTRACE_MODE_ATTACH_REALCREDS` permission (see `pt
 to duplicate another process's file descriptor (see above).
 
 Packages required for tests (Linux-only yet):
-   - libnuma-dev
+
+- libnuma-dev
 
 #### Level Zero memory provider
 
 A memory provider that provides memory from L0 device.
 
-IPC API uses the file descriptor duplication. It requires using `pidfd_getfd(2)` to obtain
-a duplicate of another process's file descriptor (`pidfd_getfd(2)` is supported since Linux 5.6).
-Permission to duplicate another process's file descriptor is governed by a ptrace access mode
-`PTRACE_MODE_ATTACH_REALCREDS` check (see `ptrace(2)`) that can be changed using
-the `/proc/sys/kernel/yama/ptrace_scope` interface in the following way:
-```sh
-$ sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope"
-```
+IPC API uses file descriptor duplication, which requires the `pidfd_getfd(2)` system call to obtain
+a duplicate of another process's file descriptor. This system call is supported since Linux 5.6.
+Required permission ("restricted ptrace") is governed by the `PTRACE_MODE_ATTACH_REALCREDS` check
+(see `ptrace(2)`). To allow file descriptor duplication in a binary that opens IPC handle, you can call
+`prctl(PR_SET_PTRACER, ...)` in the producer binary that gets the IPC handle.
+Alternatively you can change the `ptrace_scope` globally in the system, e.g.:
 
+```sh
+sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope"
+```
 ##### Requirements
 
 1) Linux or Windows OS
@@ -206,7 +221,7 @@ Additionally, required for tests:
 
 #### DevDax memory provider (Linux only)
 
-A memory provider that provides memory from a device DAX (a character device file /dev/daxX.Y).
+A memory provider that provides memory from a device DAX (a character device file like `/dev/daxX.Y`).
 It can be used when large memory mappings are needed.
 
 ##### Requirements
@@ -252,8 +267,6 @@ This memory pool is distributed as part of libumf. It forwards all requests to t
 memory provider. Currently umfPoolRealloc, umfPoolCalloc and umfPoolMallocUsableSize functions
 are not supported by the proxy pool.
 
-To enable this feature, the `UMF_BUILD_SHARED_LIBRARY` option needs to be turned `ON`.
-
 #### Disjoint pool
 
 TODO: Add a description
@@ -264,7 +277,7 @@ To enable this feature, the `UMF_BUILD_LIBUMF_POOL_DISJOINT` option needs to be 
 
 #### Jemalloc pool
 
-Jemalloc pool is a [jemalloc](https://github.com/jemalloc/jemalloc)-based memory 
+Jemalloc pool is a [jemalloc](https://github.com/jemalloc/jemalloc)-based memory
 pool manager built as a separate static library: libjemalloc_pool.a on Linux and
 jemalloc_pool.lib on Windows.
 The `UMF_BUILD_LIBUMF_POOL_JEMALLOC` option has to be turned `ON` to build this library.
@@ -273,6 +286,7 @@ The `UMF_BUILD_LIBUMF_POOL_JEMALLOC` option has to be turned `ON` to build this 
 
 In case of Linux OS jemalloc is built from the (fetched) sources with the following
 non-default options enabled:
+
 - `--with-jemalloc-prefix=je_` - adds the `je_` prefix to all public APIs,
 - `--disable-cxx` - disables C++ integration, it will cause the `new` and the `delete`
                     operators implementations to be omitted.
@@ -287,6 +301,7 @@ The default jemalloc package is required on Windows.
 
 1) The `UMF_BUILD_LIBUMF_POOL_JEMALLOC` option turned `ON`
 2) jemalloc is required:
+
 - on Linux and MacOS: jemalloc is fetched and built from sources (a custom build),
 - on Windows: the default jemalloc package is required
 
@@ -298,7 +313,8 @@ It is distributed as part of libumf. To use this pool, TBB must be installed in 
 ##### Requirements
 
 Packages required for using this pool and executing tests/benchmarks (not required for build):
-   - libtbb-dev (libtbbmalloc.so.2) on Linux or tbb (tbbmalloc.dll) on Windows
+
+- libtbb-dev (libtbbmalloc.so.2) on Linux or tbb (tbbmalloc.dll) on Windows
 
 ### Memspaces (Linux-only)
 
@@ -329,19 +345,22 @@ Querying the latency value requires HMAT support on the platform. Calling `umfMe
 UMF provides the UMF proxy library (`umf_proxy`) that makes it possible
 to override the default allocator in other programs in both Linux and Windows.
 
+To enable this feature, the `UMF_BUILD_SHARED_LIBRARY` option needs to be turned `ON`.
+
 #### Linux
 
 In case of Linux it can be done without any code changes using the `LD_PRELOAD` environment variable:
 
 ```sh
-$ LD_PRELOAD=/usr/lib/libumf_proxy.so myprogram
+LD_PRELOAD=/usr/lib/libumf_proxy.so myprogram
 ```
 
 The memory used by the proxy memory allocator is mmap'ed:
+
 1) with the `MAP_PRIVATE` flag by default or
 2) with the `MAP_SHARED` flag if the `UMF_PROXY` environment variable contains one of two following strings: `page.disposition=shared-shm` or `page.disposition=shared-fd`. These two options differ in a mechanism used during IPC:
    - `page.disposition=shared-shm` - IPC uses the named shared memory. An SHM name is generated using the `umf_proxy_lib_shm_pid_$PID` pattern, where `$PID` is the PID of the process. It creates the `/dev/shm/umf_proxy_lib_shm_pid_$PID` file.
-   - `page.disposition=shared-fd` - IPC uses the file descriptor duplication. It requires using `pidfd_getfd(2)` to obtain a duplicate of another process's file descriptor. Permission to duplicate another process's file descriptor is governed by a ptrace access mode `PTRACE_MODE_ATTACH_REALCREDS` check (see `ptrace(2)`) that can be changed using the `/proc/sys/kernel/yama/ptrace_scope` interface. `pidfd_getfd(2)` is supported since Linux 5.6.
+   - `page.disposition=shared-fd` -  IPC API uses file descriptor duplication, which requires the `pidfd_getfd(2)` system call to obtain a duplicate of another process's file descriptor. This system call is supported since Linux 5.6. Required permission ("restricted ptrace") is governed by the `PTRACE_MODE_ATTACH_REALCREDS` check (see `ptrace(2)`). To allow file descriptor duplication in a binary that opens IPC handle, you can call `prctl(PR_SET_PTRACER, ...)` in the producer binary that gets the IPC handle. Alternatively you can change the `ptrace_scope` globally in the system, e.g.: `sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope"`.
 
 **Size threshold**
 
@@ -353,6 +372,7 @@ It can be enabled by adding the `size.threshold=<value>` string to the `UMF_PROX
 #### Windows
 
 In case of Windows it requires:
+
 1) explicitly linking your program dynamically with the `umf_proxy.dll` library
 2) (C++ code only) including `proxy_lib_new_delete.h` in a single(!) source file in your project
    to override also the `new`/`delete` operations.
@@ -366,3 +386,7 @@ an issue or a Pull Request, please read [Contribution Guide](./CONTRIBUTING.md).
 
 To enable logging in UMF source files please follow the guide in the
 [web documentation](https://oneapi-src.github.io/unified-memory-framework/introduction.html#logging).
+
+## Notices
+
+The contents of this repository may have been developed with support from one or more Intel-operated generative artificial intelligence solutions.

@@ -1,8 +1,8 @@
-# Copyright (C) 2024 Intel Corporation
+# Copyright (C) 2023-2025 Intel Corporation
 # Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
-UMF_1.0 {
+UMF_0.10 {
     global:
         umfInit;
         umfTearDown;
@@ -19,13 +19,13 @@ UMF_1.0 {
         umfDevDaxMemoryProviderParamsDestroy;
         umfDevDaxMemoryProviderParamsSetDeviceDax;
         umfDevDaxMemoryProviderParamsSetProtection;
-        umfFree;
         umfFileMemoryProviderOps;
         umfFileMemoryProviderParamsCreate;
         umfFileMemoryProviderParamsDestroy;
         umfFileMemoryProviderParamsSetPath;
         umfFileMemoryProviderParamsSetProtection;
         umfFileMemoryProviderParamsSetVisibility;
+        umfFree;
         umfGetIPCHandle;
         umfGetLastFailedMemoryProvider;
         umfJemallocPoolOps;
@@ -81,13 +81,13 @@ UMF_1.0 {
         umfOsMemoryProviderOps;
         umfOsMemoryProviderParamsCreate;
         umfOsMemoryProviderParamsDestroy;
-        umfOsMemoryProviderParamsSetProtection;
-        umfOsMemoryProviderParamsSetVisibility;
-        umfOsMemoryProviderParamsSetShmName;
         umfOsMemoryProviderParamsSetNumaList;
         umfOsMemoryProviderParamsSetNumaMode;
         umfOsMemoryProviderParamsSetPartSize;
         umfOsMemoryProviderParamsSetPartitions;
+        umfOsMemoryProviderParamsSetProtection;
+        umfOsMemoryProviderParamsSetShmName;
+        umfOsMemoryProviderParamsSetVisibility;
         umfPoolAlignedMalloc;
         umfPoolByPtr;
         umfPoolCalloc;
@@ -95,6 +95,7 @@ UMF_1.0 {
         umfPoolCreateFromMemspace;
         umfPoolDestroy;
         umfPoolFree;
+        umfPoolGetIPCHandler;
         umfPoolGetIPCHandleSize;
         umfPoolGetLastAllocationError;
         umfPoolGetMemoryProvider;
@@ -113,3 +114,11 @@ UMF_1.0 {
     local:
         *;
 };
+
+UMF_0.11 {
+        umfFixedMemoryProviderOps;
+        umfFixedMemoryProviderParamsCreate;
+        umfFixedMemoryProviderParamsDestroy;
+        umfLevelZeroMemoryProviderParamsSetFreePolicy;
+        umfLevelZeroMemoryProviderParamsSetDeviceOrdinal;
+} UMF_0.10;

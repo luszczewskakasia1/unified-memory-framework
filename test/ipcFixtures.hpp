@@ -1,4 +1,4 @@
-// Copyright (C) 2024 Intel Corporation
+// Copyright (C) 2024-2025 Intel Corporation
 // Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
@@ -46,23 +46,36 @@ class HostMemoryAccessor : public MemoryAccessor {
     }
 };
 
+typedef void *(*pfnPoolParamsCreate)();
+typedef umf_result_t (*pfnPoolParamsDestroy)(void *);
+
+typedef void *(*pfnProviderParamsCreate)();
+typedef umf_result_t (*pfnProviderParamsDestroy)(void *);
+
 // ipcTestParams:
-// pool_ops, pool_params, provider_ops, provider_params, memoryAccessor
+// pool_ops, pfnPoolParamsCreate,pfnPoolParamsDestroy,
+// provider_ops, pfnProviderParamsCreate, pfnProviderParamsDestroy,
+// memoryAccessor
 using ipcTestParams =
-    std::tuple<umf_memory_pool_ops_t *, void *, umf_memory_provider_ops_t *,
-               void *, MemoryAccessor *>;
+    std::tuple<umf_memory_pool_ops_t *, pfnPoolParamsCreate,
+               pfnPoolParamsDestroy, umf_memory_provider_ops_t *,
+               pfnProviderParamsCreate, pfnProviderParamsDestroy,
+               MemoryAccessor *>;
 
 struct umfIpcTest : umf_test::test,
                     ::testing::WithParamInterface<ipcTestParams> {
     umfIpcTest() {}
     void SetUp() override {
         test::SetUp();
-        auto [pool_ops, pool_params, provider_ops, provider_params, accessor] =
+        auto [pool_ops, pool_params_create, pool_params_destroy, provider_ops,
+              provider_params_create, provider_params_destroy, accessor] =
             this->GetParam();
         poolOps = pool_ops;
-        poolParams = pool_params;
+        poolParamsCreate = pool_params_create;
+        poolParamsDestroy = pool_params_destroy;
         providerOps = provider_ops;
-        providerParams = provider_params;
+        providerParamsCreate = provider_params_create;
+        providerParamsDestroy = provider_params_destroy;
         memAccessor = accessor;
     }
 
@@ -74,9 +87,18 @@ struct umfIpcTest : umf_test::test,
         umf_memory_provider_handle_t hProvider = NULL;
         umf_memory_pool_handle_t hPool = NULL;
 
+        void *providerParams = nullptr;
+        if (providerParamsCreate) {
+            providerParams = providerParamsCreate();
+        }
+
         auto ret =
             umfMemoryProviderCreate(providerOps, providerParams, &hProvider);
         EXPECT_EQ(ret, UMF_RESULT_SUCCESS);
+
+        if (providerParamsDestroy) {
+            providerParamsDestroy(providerParams);
+        }
 
         auto trace = [](void *trace_context, const char *name) {
             stats_type *stat = static_cast<stats_type *>(trace_context);
@@ -96,9 +118,18 @@ struct umfIpcTest : umf_test::test,
         umf_memory_provider_handle_t hTraceProvider =
             traceProviderCreate(hProvider, true, (void *)&stat, trace);
 
+        void *poolParams = nullptr;
+        if (poolParamsCreate) {
+            poolParams = poolParamsCreate();
+        }
+
         ret = umfPoolCreate(poolOps, hTraceProvider, poolParams,
                             UMF_POOL_CREATE_FLAG_OWN_PROVIDER, &hPool);
         EXPECT_EQ(ret, UMF_RESULT_SUCCESS);
+
+        if (poolParamsDestroy) {
+            poolParamsDestroy(poolParams);
+        }
 
         return umf::pool_unique_handle_t(hPool, &umfPoolDestroy);
     }
@@ -118,10 +149,14 @@ struct umfIpcTest : umf_test::test,
     static constexpr int NTHREADS = 10;
     stats_type stat;
     MemoryAccessor *memAccessor = nullptr;
+
     umf_memory_pool_ops_t *poolOps = nullptr;
-    void *poolParams = nullptr;
+    pfnPoolParamsCreate poolParamsCreate = nullptr;
+    pfnPoolParamsDestroy poolParamsDestroy = nullptr;
+
     umf_memory_provider_ops_t *providerOps = nullptr;
-    void *providerParams = nullptr;
+    pfnProviderParamsCreate providerParamsCreate = nullptr;
+    pfnProviderParamsDestroy providerParamsDestroy = nullptr;
 };
 
 TEST_P(umfIpcTest, GetIPCHandleSize) {
@@ -194,12 +229,17 @@ TEST_P(umfIpcTest, BasicFlow) {
     ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
     ASSERT_EQ(handleFullSize, handleHalfSize);
 
+    umf_ipc_handler_handle_t ipcHandler = nullptr;
+    ret = umfPoolGetIPCHandler(pool.get(), &ipcHandler);
+    ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
+    ASSERT_NE(ipcHandler, nullptr);
+
     void *fullArray = nullptr;
-    ret = umfOpenIPCHandle(pool.get(), ipcHandleFull, &fullArray);
+    ret = umfOpenIPCHandle(ipcHandler, ipcHandleFull, &fullArray);
     ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
 
     void *halfArray = nullptr;
-    ret = umfOpenIPCHandle(pool.get(), ipcHandleHalf, &halfArray);
+    ret = umfOpenIPCHandle(ipcHandler, ipcHandleHalf, &halfArray);
     ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
 
     std::vector<int> actual_data(SIZE);
@@ -262,8 +302,13 @@ TEST_P(umfIpcTest, GetPoolByOpenedHandle) {
 
         for (size_t pool_id = 0; pool_id < NUM_POOLS; pool_id++) {
             void *ptr = nullptr;
+            umf_ipc_handler_handle_t ipcHandler = nullptr;
             ret =
-                umfOpenIPCHandle(pools_to_open[pool_id].get(), ipcHandle, &ptr);
+                umfPoolGetIPCHandler(pools_to_open[pool_id].get(), &ipcHandler);
+            ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
+            ASSERT_NE(ipcHandler, nullptr);
+
+            ret = umfOpenIPCHandle(ipcHandler, ipcHandle, &ptr);
             ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
             openedPtrs[pool_id][i] = ptr;
         }
@@ -296,16 +341,22 @@ TEST_P(umfIpcTest, GetPoolByOpenedHandle) {
 TEST_P(umfIpcTest, AllocFreeAllocTest) {
     constexpr size_t SIZE = 64 * 1024;
     umf::pool_unique_handle_t pool = makePool();
+    umf_ipc_handler_handle_t ipcHandler = nullptr;
+
+    umf_result_t ret = umfPoolGetIPCHandler(pool.get(), &ipcHandler);
+    ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
+    ASSERT_NE(ipcHandler, nullptr);
+
     void *ptr = umfPoolMalloc(pool.get(), SIZE);
     EXPECT_NE(ptr, nullptr);
 
     umf_ipc_handle_t ipcHandle = nullptr;
     size_t handleSize = 0;
-    umf_result_t ret = umfGetIPCHandle(ptr, &ipcHandle, &handleSize);
+    ret = umfGetIPCHandle(ptr, &ipcHandle, &handleSize);
     ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
 
     void *opened_ptr = nullptr;
-    ret = umfOpenIPCHandle(pool.get(), ipcHandle, &opened_ptr);
+    ret = umfOpenIPCHandle(ipcHandler, ipcHandle, &opened_ptr);
     ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
 
     ret = umfCloseIPCHandle(opened_ptr);
@@ -327,7 +378,7 @@ TEST_P(umfIpcTest, AllocFreeAllocTest) {
     ret = umfGetIPCHandle(ptr, &ipcHandle, &handleSize);
     ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
 
-    ret = umfOpenIPCHandle(pool.get(), ipcHandle, &opened_ptr);
+    ret = umfOpenIPCHandle(ipcHandler, ipcHandle, &opened_ptr);
     ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
 
     ret = umfCloseIPCHandle(opened_ptr);
@@ -345,11 +396,22 @@ TEST_P(umfIpcTest, AllocFreeAllocTest) {
     EXPECT_EQ(stat.openCount, stat.closeCount);
 }
 
-TEST_P(umfIpcTest, openInTwoPools) {
+TEST_P(umfIpcTest, openInTwoIpcHandlers) {
     constexpr size_t SIZE = 100;
     std::vector<int> expected_data(SIZE);
     umf::pool_unique_handle_t pool1 = makePool();
     umf::pool_unique_handle_t pool2 = makePool();
+    umf_ipc_handler_handle_t ipcHandler1 = nullptr;
+    umf_ipc_handler_handle_t ipcHandler2 = nullptr;
+
+    umf_result_t ret = umfPoolGetIPCHandler(pool1.get(), &ipcHandler1);
+    ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
+    ASSERT_NE(ipcHandler1, nullptr);
+
+    ret = umfPoolGetIPCHandler(pool2.get(), &ipcHandler2);
+    ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
+    ASSERT_NE(ipcHandler2, nullptr);
+
     void *ptr = umfPoolMalloc(pool1.get(), sizeof(expected_data[0]) * SIZE);
     EXPECT_NE(ptr, nullptr);
 
@@ -358,15 +420,15 @@ TEST_P(umfIpcTest, openInTwoPools) {
 
     umf_ipc_handle_t ipcHandle = nullptr;
     size_t handleSize = 0;
-    umf_result_t ret = umfGetIPCHandle(ptr, &ipcHandle, &handleSize);
+    ret = umfGetIPCHandle(ptr, &ipcHandle, &handleSize);
     ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
 
     void *openedPtr1 = nullptr;
-    ret = umfOpenIPCHandle(pool1.get(), ipcHandle, &openedPtr1);
+    ret = umfOpenIPCHandle(ipcHandler1, ipcHandle, &openedPtr1);
     ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
 
     void *openedPtr2 = nullptr;
-    ret = umfOpenIPCHandle(pool2.get(), ipcHandle, &openedPtr2);
+    ret = umfOpenIPCHandle(ipcHandler2, ipcHandle, &openedPtr2);
     ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
 
     ret = umfPutIPCHandle(ipcHandle);
@@ -447,6 +509,7 @@ TEST_P(umfIpcTest, ConcurrentGetPutHandles) {
 }
 
 TEST_P(umfIpcTest, ConcurrentOpenCloseHandles) {
+    umf_result_t ret;
     std::vector<void *> ptrs;
     constexpr size_t ALLOC_SIZE = 100;
     constexpr size_t NUM_POINTERS = 100;
@@ -462,21 +525,25 @@ TEST_P(umfIpcTest, ConcurrentOpenCloseHandles) {
     for (size_t i = 0; i < NUM_POINTERS; ++i) {
         umf_ipc_handle_t ipcHandle;
         size_t handleSize;
-        umf_result_t ret = umfGetIPCHandle(ptrs[i], &ipcHandle, &handleSize);
+        ret = umfGetIPCHandle(ptrs[i], &ipcHandle, &handleSize);
         ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
         ipcHandles[i] = ipcHandle;
     }
 
     std::array<std::vector<void *>, NTHREADS> openedIpcHandles;
+    umf_ipc_handler_handle_t ipcHandler = nullptr;
+    ret = umfPoolGetIPCHandler(pool.get(), &ipcHandler);
+    ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
+    ASSERT_NE(ipcHandler, nullptr);
 
     umf_test::syncthreads_barrier syncthreads(NTHREADS);
 
     auto openHandlesFn = [&ipcHandles, &openedIpcHandles, &syncthreads,
-                          &pool](size_t tid) {
+                          ipcHandler](size_t tid) {
         syncthreads();
         for (auto ipcHandle : ipcHandles) {
             void *ptr;
-            umf_result_t ret = umfOpenIPCHandle(pool.get(), ipcHandle, &ptr);
+            umf_result_t ret = umfOpenIPCHandle(ipcHandler, ipcHandle, &ptr);
             ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
             openedIpcHandles[tid].push_back(ptr);
         }
@@ -495,12 +562,12 @@ TEST_P(umfIpcTest, ConcurrentOpenCloseHandles) {
     umf_test::parallel_exec(NTHREADS, closeHandlesFn);
 
     for (auto ipcHandle : ipcHandles) {
-        umf_result_t ret = umfPutIPCHandle(ipcHandle);
+        ret = umfPutIPCHandle(ipcHandle);
         EXPECT_EQ(ret, UMF_RESULT_SUCCESS);
     }
 
     for (void *ptr : ptrs) {
-        umf_result_t ret = umfPoolFree(pool.get(), ptr);
+        ret = umfPoolFree(pool.get(), ptr);
         EXPECT_EQ(ret, UMF_RESULT_SUCCESS);
     }
 

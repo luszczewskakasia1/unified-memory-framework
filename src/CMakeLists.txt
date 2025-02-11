@@ -1,4 +1,4 @@
-# Copyright (C) 2023-2024 Intel Corporation
+# Copyright (C) 2023-2025 Intel Corporation
 # Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
@@ -11,10 +11,24 @@ set(UMF_CUDA_INCLUDE_DIR
     ""
     CACHE PATH "Directory containing the CUDA headers")
 
+# Compose the UMF_ALL_CMAKE_VARIABLES variable containing CMake options that
+# will be saved in the constant string.
+list(SORT UMF_OPTIONS_LIST ORDER DESCENDING)
+foreach(_var ${UMF_OPTIONS_LIST})
+    # Preprocessor definitions containing '#' cannot be passed on to the
+    # compiler command line because many compilers do not support it.
+    if(NOT "${${_var}}" MATCHES "#")
+        set(UMF_ALL_CMAKE_VARIABLES
+            "${_var}:${${_var}},${UMF_ALL_CMAKE_VARIABLES}")
+    endif()
+endforeach()
+
 # Compile definitions for UMF library.
 #
 # TODO: Cleanup the compile definitions across all the CMake files
-set(UMF_COMMON_COMPILE_DEFINITIONS UMF_VERSION=${UMF_VERSION})
+set(UMF_COMMON_COMPILE_DEFINITIONS
+    ${UMF_COMMON_COMPILE_DEFINITIONS} UMF_VERSION=${UMF_VERSION}
+    UMF_ALL_CMAKE_VARIABLES="${UMF_ALL_CMAKE_VARIABLES}")
 
 set(BA_SOURCES
     ${CMAKE_CURRENT_SOURCE_DIR}/base_alloc/base_alloc.c
@@ -25,6 +39,8 @@ add_subdirectory(utils)
 add_subdirectory(coarse)
 
 set(UMF_LIBS $<BUILD_INTERFACE:umf_utils> $<BUILD_INTERFACE:coarse>)
+
+set(CTL_SOURCES ${CMAKE_CURRENT_SOURCE_DIR}/ctl/ctl.c)
 
 if(LINUX)
     set(BA_SOURCES ${BA_SOURCES}
@@ -45,6 +61,7 @@ set(HWLOC_DEPENDENT_SOURCES topology.c)
 
 set(UMF_SOURCES
     ${BA_SOURCES}
+    ${CTL_SOURCES}
     libumf.c
     ipc.c
     ipc_cache.c
@@ -62,6 +79,7 @@ set(UMF_SOURCES
     provider/provider_cuda.c
     provider/provider_devdax_memory.c
     provider/provider_file_memory.c
+    provider/provider_fixed_memory.c
     provider/provider_level_zero.c
     provider/provider_os_memory.c
     provider/provider_tracking.c
@@ -164,6 +182,18 @@ add_dependencies(umf coarse)
 
 if(UMF_LINK_HWLOC_STATICALLY)
     add_dependencies(umf ${UMF_HWLOC_NAME})
+    # On Darwin, link with the IOKit and Foundation frameworks, if they are
+    # available in the system. This is to comply with hwloc which links these,
+    # if available. There is no option to disable these frameworks on Darwin
+    # hwloc builds.
+    if(MACOSX)
+        find_library(IOKIT_LIBRARY IOKit)
+        find_library(FOUNDATION_LIBRARY Foundation)
+        if(IOKIT_LIBRARY OR FOUNDATION_LIBRARY)
+            target_link_libraries(umf PRIVATE ${IOKIT_LIBRARY}
+                                              ${FOUNDATION_LIBRARY})
+        endif()
+    endif()
 endif()
 
 if(NOT WINDOWS AND UMF_POOL_JEMALLOC_ENABLED)

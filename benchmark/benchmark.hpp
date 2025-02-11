@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2025 Intel Corporation
  *
  * Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -75,69 +75,104 @@
 #include <umf/memory_pool.h>
 #include <umf/memory_provider.h>
 
-#include "benchmark_interfaces.hpp"
+#include "benchmark_size.hpp"
+#include "benchmark_umf.hpp"
 
 struct alloc_data {
     void *ptr;
     size_t size;
 };
 
-#define UMF_BENCHMARK_TEMPLATE_DEFINE(BaseClass, Method, ...)                  \
-    BENCHMARK_TEMPLATE_DEFINE_F(BaseClass, Method, __VA_ARGS__)                \
-    (benchmark::State & state) {                                               \
-        for (auto _ : state) {                                                 \
-            bench(state);                                                      \
-        }                                                                      \
-    }
-
-#define UMF_BENCHMARK_REGISTER_F(BaseClass, Method)                            \
-    BENCHMARK_REGISTER_F(BaseClass, Method)                                    \
-        ->ArgNames(                                                            \
-            BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::argsName())      \
-        ->Name(BENCHMARK_PRIVATE_CONCAT_NAME(BaseClass, Method)::name())       \
-        ->MinWarmUpTime(1)
-
-class fixed_alloc_size : public alloc_size_interface {
+template <typename Provider, typename = std::enable_if_t<std::is_base_of<
+                                 provider_interface, Provider>::value>>
+class provider_allocator : public allocator_interface {
   public:
-    unsigned SetUp(::benchmark::State &state, unsigned argPos) override {
-        size = state.range(argPos);
-        return argPos + 1;
+    unsigned SetUp(::benchmark::State &state, unsigned r) override {
+        provider.SetUp(state);
+        return r;
     }
-    void TearDown([[maybe_unused]] ::benchmark::State &state) override {}
-    size_t nextSize() override { return size; };
-    static std::vector<std::string> argsName() { return {"size"}; }
+
+    void TearDown(::benchmark::State &state) override {
+        provider.TearDown(state);
+    }
+
+    void *benchAlloc(size_t size) override {
+        void *ptr;
+        if (umfMemoryProviderAlloc(provider.provider, size, 0, &ptr) !=
+            UMF_RESULT_SUCCESS) {
+            return NULL;
+        }
+        return ptr;
+    }
+
+    void benchFree(void *ptr, size_t size) override {
+        umfMemoryProviderFree(provider.provider, ptr, size);
+    }
+
+    static std::string name() { return Provider::name(); }
 
   private:
-    size_t size;
+    Provider provider;
 };
 
-class uniform_alloc_size : public alloc_size_interface {
-    using distribution = std::uniform_int_distribution<int64_t>;
-
+// TODO: assert Pool to be a pool_interface<provider_interface>.
+template <typename Pool> class pool_allocator : public allocator_interface {
   public:
-    unsigned SetUp(::benchmark::State &state, unsigned argPos) override {
-        auto min = state.range(argPos++);
-        auto max = state.range(argPos++);
-        auto gran = state.range(argPos++);
-        if (min % gran != 0 && max % gran != 0) {
-            state.SkipWithError("min and max must be divisible by granularity");
-            return argPos;
-        }
+    unsigned SetUp(::benchmark::State &state, unsigned r) override {
+        pool.SetUp(state);
+        return r;
+    }
 
-        dist.param(distribution::param_type(min / gran, max / gran));
-        multiplier = gran;
-        return argPos;
+    void TearDown(::benchmark::State &state) override { pool.TearDown(state); }
+
+    virtual void *benchAlloc(size_t size) override {
+        return umfPoolMalloc(pool.pool, size);
     }
-    void TearDown([[maybe_unused]] ::benchmark::State &state) override {}
-    size_t nextSize() override { return dist(generator) * multiplier; }
-    static std::vector<std::string> argsName() {
-        return {"min size", "max size", "granularity"};
+
+    virtual void benchFree(void *ptr, [[maybe_unused]] size_t size) override {
+        umfPoolFree(pool.pool, ptr);
     }
+
+    static std::string name() { return Pool::name(); }
 
   private:
-    std::default_random_engine generator;
-    distribution dist;
-    size_t multiplier;
+    Pool pool;
+};
+
+template <typename Size, typename Allocator>
+struct benchmark_interface : public benchmark::Fixture {
+    void SetUp(::benchmark::State &state) {
+        int argPos = alloc_size.SetUp(state, 0);
+        allocator.SetUp(state, argPos);
+    }
+
+    void TearDown(::benchmark::State &state) {
+        alloc_size.TearDown(state);
+        allocator.TearDown(state);
+    }
+
+    virtual void bench(::benchmark::State &state) = 0;
+
+    static std::vector<std::string> argsName() {
+        auto s = Size::argsName();
+        auto a = Allocator::argsName();
+        std::vector<std::string> res = {};
+        res.insert(res.end(), s.begin(), s.end());
+        res.insert(res.end(), a.begin(), a.end());
+        return res;
+    }
+
+    virtual std::string name() { return Allocator::name(); }
+    virtual int64_t iterations() { return 10000; }
+    static void defaultArgs(Benchmark *benchmark) {
+        auto *bench =
+            static_cast<benchmark_interface<Size, Allocator> *>(benchmark);
+        benchmark->ArgNames(bench->argsName())
+            ->Name(bench->name())
+            ->Iterations(bench->iterations());
+    }
+    Size alloc_size;
+    Allocator allocator;
 };
 
 // This class benchmarks speed of alloc() operations.
@@ -231,13 +266,16 @@ class alloc_benchmark : public benchmark_interface<Size, Alloc> {
             state.ResumeTiming();
         }
     }
-    static std::vector<std::string> argsName() {
+
+    virtual std::vector<std::string> argsName() {
         auto n = benchmark_interface<Size, Alloc>::argsName();
         std::vector<std::string> res = {"max_allocs", "pre_allocs"};
         res.insert(res.end(), n.begin(), n.end());
         return res;
     }
-    static std::string name() { return base::name() + "/alloc"; }
+
+    virtual std::string name() { return base::name() + "/alloc"; }
+    virtual int64_t iterations() { return 200000; }
 
   protected:
     using base = benchmark_interface<Size, Alloc>;
@@ -315,68 +353,19 @@ class multiple_malloc_free_benchmark : public alloc_benchmark<Size, Alloc> {
         }
     }
 
-    static std::string name() {
+    virtual std::string name() {
         return base::base::name() + "/multiple_malloc_free";
     }
-    static std::vector<std::string> argsName() {
+
+    virtual std::vector<std::string> argsName() {
         auto n = benchmark_interface<Size, Alloc>::argsName();
         std::vector<std::string> res = {"max_allocs"};
         res.insert(res.end(), n.begin(), n.end());
         return res;
     }
+
+    virtual int64_t iterations() { return 2000; }
+
     std::default_random_engine generator;
     distribution dist;
-};
-
-template <typename Provider, typename = std::enable_if_t<std::is_base_of<
-                                 provider_interface, Provider>::value>>
-class provider_allocator : public allocator_interface {
-  public:
-    unsigned SetUp(::benchmark::State &state, unsigned r) override {
-        provider.SetUp(state);
-        return r;
-    }
-
-    void TearDown(::benchmark::State &state) override {
-        provider.TearDown(state);
-    }
-
-    void *benchAlloc(size_t size) override {
-        void *ptr;
-        if (umfMemoryProviderAlloc(provider.provider, size, 0, &ptr) !=
-            UMF_RESULT_SUCCESS) {
-            return NULL;
-        }
-        return ptr;
-    }
-    void benchFree(void *ptr, size_t size) override {
-        umfMemoryProviderFree(provider.provider, ptr, size);
-    }
-    static std::string name() { return Provider::name(); }
-
-  private:
-    Provider provider;
-};
-
-// TODO: assert Pool to be a pool_interface<provider_interface>.
-template <typename Pool> class pool_allocator : public allocator_interface {
-  public:
-    unsigned SetUp(::benchmark::State &state, unsigned r) override {
-        pool.SetUp(state);
-        return r;
-    }
-
-    void TearDown(::benchmark::State &state) override { pool.TearDown(state); }
-
-    virtual void *benchAlloc(size_t size) override {
-        return umfPoolMalloc(pool.pool, size);
-    }
-    virtual void benchFree(void *ptr, [[maybe_unused]] size_t size) override {
-        umfPoolFree(pool.pool, ptr);
-    }
-
-    static std::string name() { return Pool::name(); }
-
-  private:
-    Pool pool;
 };

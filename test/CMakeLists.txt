@@ -1,9 +1,15 @@
-# Copyright (C) 2022-2024 Intel Corporation
+# Copyright (C) 2022-2025 Intel Corporation
 # Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED YES)
+
+if(CMAKE_C_COMPILER_ID STREQUAL "IntelLLVM")
+    # Compiler dependencies needs to be in library path or to be linked
+    # statically
+    add_link_options(-static-intel)
+endif()
 
 include(FetchContent)
 FetchContent_Declare(
@@ -25,8 +31,11 @@ set(UMF_TEST_DIR ${CMAKE_CURRENT_SOURCE_DIR})
 set(UMF_UTILS_DIR ${UMF_CMAKE_SOURCE_DIR}/src/utils)
 
 function(build_umf_test)
-    # Parameters: * NAME - a name of the test * SRCS - source files * LIBS -
-    # libraries to be linked with
+    # Parameters:
+    #
+    # * NAME - a name of the test
+    # * SRCS - source files
+    # * LIBS - libraries to be linked with
     set(oneValueArgs NAME)
     set(multiValueArgs SRCS LIBS)
     cmake_parse_arguments(
@@ -48,6 +57,10 @@ function(build_umf_test)
 
     if(UMF_BUILD_LEVEL_ZERO_PROVIDER)
         set(INC_DIRS ${INC_DIRS} ${LEVEL_ZERO_INCLUDE_DIRS})
+    endif()
+
+    if(NOT UMF_DISABLE_HWLOC)
+        set(INC_DIRS ${INC_DIRS} ${LIBHWLOC_INCLUDE_DIRS})
     endif()
 
     if(UMF_POOL_JEMALLOC_ENABLED)
@@ -102,8 +115,11 @@ function(build_umf_test)
 endfunction()
 
 function(add_umf_test)
-    # Parameters: * NAME - a name of the test * SRCS - source files * LIBS -
-    # libraries to be linked with
+    # Parameters:
+    #
+    # * NAME - a name of the test
+    # * SRCS - source files
+    # * LIBS - libraries to be linked with
     set(oneValueArgs NAME)
     set(multiValueArgs SRCS LIBS)
     cmake_parse_arguments(
@@ -114,12 +130,9 @@ function(add_umf_test)
         ${ARGN})
 
     build_umf_test(
-        NAME
-        ${ARG_NAME}
-        SRCS
-        ${ARG_SRCS}
-        LIBS
-        ${ARG_LIBS})
+        NAME ${ARG_NAME}
+        SRCS ${ARG_SRCS}
+        LIBS ${ARG_LIBS})
 
     set(TEST_NAME umf-${ARG_NAME})
     set(TEST_TARGET_NAME umf_test-${ARG_NAME})
@@ -132,6 +145,11 @@ function(add_umf_test)
     set_tests_properties(${TEST_NAME} PROPERTIES LABELS "umf")
 
     if(WINDOWS)
+        # add PATH to DLL on Windows
+        set(DLL_PATH_LIST
+            "${DLL_PATH_LIST};PATH=path_list_append:${CMAKE_BINARY_DIR}/bin/;PATH=path_list_append:${CMAKE_BINARY_DIR}/bin/$<CONFIG>/"
+        )
+
         # append PATH to DLLs
         set_property(TEST ${TEST_NAME} PROPERTY ENVIRONMENT_MODIFICATION
                                                 "${DLL_PATH_LIST}")
@@ -186,6 +204,11 @@ add_umf_test(
     NAME logger
     SRCS utils/utils_log.cpp ${UMF_UTILS_SOURCES}
     LIBS ${UMF_LOGGER_LIBS})
+
+add_umf_test(
+    NAME ctl
+    SRCS ctl/test.cpp ctl/ctl_debug.c ../src/ctl/ctl.c ${BA_SOURCES_FOR_TEST}
+    LIBS ${UMF_UTILS_FOR_TEST})
 
 add_umf_test(
     NAME utils_common
@@ -316,6 +339,10 @@ if(LINUX AND (NOT UMF_DISABLE_HWLOC)) # OS-specific functions are implemented
     add_umf_test(
         NAME provider_file_memory_ipc
         SRCS provider_file_memory_ipc.cpp ${BA_SOURCES_FOR_TEST}
+        LIBS ${UMF_UTILS_FOR_TEST})
+    add_umf_test(
+        NAME provider_fixed_memory
+        SRCS provider_fixed_memory.cpp
         LIBS ${UMF_UTILS_FOR_TEST})
 
     # This test requires Linux-only file memory provider
@@ -451,10 +478,10 @@ if(UMF_PROXY_LIB_ENABLED AND UMF_BUILD_SHARED_LIBRARY)
     # TODO enable this test on Windows
     if(LINUX)
         add_umf_test(
-            NAME test_proxy_lib_size_threshold
+            NAME proxy_lib_size_threshold
             SRCS ${BA_SOURCES_FOR_TEST} test_proxy_lib_size_threshold.cpp
             LIBS ${UMF_UTILS_FOR_TEST} umf_proxy)
-        set_property(TEST umf-test_proxy_lib_size_threshold
+        set_property(TEST umf-proxy_lib_size_threshold
                      PROPERTY ENVIRONMENT UMF_PROXY="size.threshold=64")
     endif()
 
@@ -476,8 +503,10 @@ add_umf_test(
 add_umf_test(NAME ipc_negative SRCS ipc_negative.cpp)
 
 function(add_umf_ipc_test)
-    # Parameters: * TEST - a name of the test * SRC_DIR - source files directory
-    # path
+    # Parameters:
+    #
+    # * TEST - a name of the test
+    # * SRC_DIR - source files directory path
     set(oneValueArgs TEST SRC_DIR)
     cmake_parse_arguments(
         ARG
@@ -511,64 +540,42 @@ endfunction()
 if(LINUX)
     if(NOT UMF_DISABLE_HWLOC AND UMF_POOL_SCALABLE_ENABLED)
         build_umf_test(
-            NAME
-            ipc_os_prov_consumer
-            SRCS
-            ipc_os_prov_consumer.c
-            common/ipc_common.c
-            common/ipc_os_prov_common.c)
+            NAME ipc_os_prov_consumer
+            SRCS ipc_os_prov_consumer.c common/ipc_common.c
+                 common/ipc_os_prov_common.c)
         build_umf_test(
-            NAME
-            ipc_os_prov_producer
-            SRCS
-            ipc_os_prov_producer.c
-            common/ipc_common.c
-            common/ipc_os_prov_common.c)
+            NAME ipc_os_prov_producer
+            SRCS ipc_os_prov_producer.c common/ipc_common.c
+                 common/ipc_os_prov_common.c)
         add_umf_ipc_test(TEST ipc_os_prov_anon_fd)
         add_umf_ipc_test(TEST ipc_os_prov_shm)
 
         if(UMF_PROXY_LIB_ENABLED AND UMF_BUILD_SHARED_LIBRARY)
             build_umf_test(
-                NAME
-                ipc_os_prov_proxy
-                SRCS
-                ipc_os_prov_proxy.c
-                common/ipc_common.c
-                LIBS
-                ${UMF_UTILS_FOR_TEST})
+                NAME ipc_os_prov_proxy
+                SRCS ipc_os_prov_proxy.c common/ipc_common.c
+                LIBS ${UMF_UTILS_FOR_TEST})
             add_umf_ipc_test(TEST ipc_os_prov_proxy)
         endif()
 
         build_umf_test(
-            NAME
-            ipc_devdax_prov_consumer
-            SRCS
-            ipc_devdax_prov_consumer.c
-            common/ipc_common.c
-            common/ipc_os_prov_common.c)
+            NAME ipc_devdax_prov_consumer
+            SRCS ipc_devdax_prov_consumer.c common/ipc_common.c
+                 common/ipc_os_prov_common.c)
         build_umf_test(
-            NAME
-            ipc_devdax_prov_producer
-            SRCS
-            ipc_devdax_prov_producer.c
-            common/ipc_common.c
-            common/ipc_os_prov_common.c)
+            NAME ipc_devdax_prov_producer
+            SRCS ipc_devdax_prov_producer.c common/ipc_common.c
+                 common/ipc_os_prov_common.c)
         add_umf_ipc_test(TEST ipc_devdax_prov)
 
         build_umf_test(
-            NAME
-            ipc_file_prov_consumer
-            SRCS
-            ipc_file_prov_consumer.c
-            common/ipc_common.c
-            common/ipc_os_prov_common.c)
+            NAME ipc_file_prov_consumer
+            SRCS ipc_file_prov_consumer.c common/ipc_common.c
+                 common/ipc_os_prov_common.c)
         build_umf_test(
-            NAME
-            ipc_file_prov_producer
-            SRCS
-            ipc_file_prov_producer.c
-            common/ipc_common.c
-            common/ipc_os_prov_common.c)
+            NAME ipc_file_prov_producer
+            SRCS ipc_file_prov_producer.c common/ipc_common.c
+                 common/ipc_os_prov_common.c)
         add_umf_ipc_test(TEST ipc_file_prov)
         add_umf_ipc_test(TEST ipc_file_prov_fsdax)
     endif()
@@ -579,29 +586,17 @@ if(LINUX)
        AND UMF_BUILD_LEVEL_ZERO_PROVIDER
        AND UMF_BUILD_LIBUMF_POOL_DISJOINT)
         build_umf_test(
-            NAME
-            ipc_level_zero_prov_consumer
-            SRCS
-            providers/ipc_level_zero_prov_consumer.c
-            common/ipc_common.c
-            providers/ipc_level_zero_prov_common.c
-            ${UMF_UTILS_DIR}/utils_level_zero.cpp
-            LIBS
-            ze_loader
-            disjoint_pool
-            ${UMF_UTILS_FOR_TEST})
+            NAME ipc_level_zero_prov_consumer
+            SRCS providers/ipc_level_zero_prov_consumer.c common/ipc_common.c
+                 providers/ipc_level_zero_prov_common.c
+                 ${UMF_UTILS_DIR}/utils_level_zero.cpp
+            LIBS ze_loader disjoint_pool ${UMF_UTILS_FOR_TEST})
         build_umf_test(
-            NAME
-            ipc_level_zero_prov_producer
-            SRCS
-            providers/ipc_level_zero_prov_producer.c
-            common/ipc_common.c
-            providers/ipc_level_zero_prov_common.c
-            ${UMF_UTILS_DIR}/utils_level_zero.cpp
-            LIBS
-            ze_loader
-            disjoint_pool
-            ${UMF_UTILS_FOR_TEST})
+            NAME ipc_level_zero_prov_producer
+            SRCS providers/ipc_level_zero_prov_producer.c common/ipc_common.c
+                 providers/ipc_level_zero_prov_common.c
+                 ${UMF_UTILS_DIR}/utils_level_zero.cpp
+            LIBS ze_loader disjoint_pool ${UMF_UTILS_FOR_TEST})
         add_umf_ipc_test(TEST ipc_level_zero_prov SRC_DIR providers)
     endif()
 
@@ -609,29 +604,15 @@ if(LINUX)
        AND UMF_BUILD_CUDA_PROVIDER
        AND UMF_BUILD_LIBUMF_POOL_DISJOINT)
         build_umf_test(
-            NAME
-            ipc_cuda_prov_consumer
-            SRCS
-            providers/ipc_cuda_prov_consumer.c
-            common/ipc_common.c
-            providers/ipc_cuda_prov_common.c
-            providers/cuda_helpers.cpp
-            LIBS
-            cuda
-            disjoint_pool
-            ${UMF_UTILS_FOR_TEST})
+            NAME ipc_cuda_prov_consumer
+            SRCS providers/ipc_cuda_prov_consumer.c common/ipc_common.c
+                 providers/ipc_cuda_prov_common.c providers/cuda_helpers.cpp
+            LIBS cuda disjoint_pool ${UMF_UTILS_FOR_TEST})
         build_umf_test(
-            NAME
-            ipc_cuda_prov_producer
-            SRCS
-            providers/ipc_cuda_prov_producer.c
-            common/ipc_common.c
-            providers/ipc_cuda_prov_common.c
-            providers/cuda_helpers.cpp
-            LIBS
-            cuda
-            disjoint_pool
-            ${UMF_UTILS_FOR_TEST})
+            NAME ipc_cuda_prov_producer
+            SRCS providers/ipc_cuda_prov_producer.c common/ipc_common.c
+                 providers/ipc_cuda_prov_common.c providers/cuda_helpers.cpp
+            LIBS cuda disjoint_pool ${UMF_UTILS_FOR_TEST})
         add_umf_ipc_test(TEST ipc_cuda_prov SRC_DIR providers)
     endif()
 else()
@@ -717,7 +698,7 @@ if(LINUX
     else()
         message(
             STATUS
-                "IPC Level 0 example requires UMF_BUILD_GPU_EXAMPLES, UMF_BUILD_LEVEL_ZERO_PROVIDER and UMF_BUILD_LIBUMF_POOL_DISJOINT to be turned ON - skipping"
+                "IPC Level Zero example requires UMF_BUILD_GPU_EXAMPLES, UMF_BUILD_LEVEL_ZERO_PROVIDER and UMF_BUILD_LIBUMF_POOL_DISJOINT to be turned ON - skipping"
         )
     endif()
 

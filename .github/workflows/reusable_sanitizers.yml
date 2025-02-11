@@ -40,10 +40,6 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y intel-oneapi-ippcp-devel intel-oneapi-ipp-devel intel-oneapi-common-oneapi-vars intel-oneapi-compiler-dpcpp-cpp
 
-
-    - name: Set ptrace value for IPC test
-      run: sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope"
-
     - name: Configure build
       run: >
         ${{ matrix.compiler.cxx == 'icpx' && '. /opt/intel/oneapi/setvars.sh &&' || ''}} 
@@ -77,7 +73,6 @@ jobs:
         ASAN_OPTIONS: allocator_may_return_null=1
         TSAN_OPTIONS: allocator_may_return_null=1
       run: |
-        ${{ matrix.compiler.cxx == 'icpx' && '. /opt/intel/oneapi/setvars.sh' || true }}
         ctest --output-on-failure
 
   windows-build:

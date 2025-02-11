@@ -1,4 +1,4 @@
-// Copyright (C) 2023 Intel Corporation
+// Copyright (C) 2023-2025 Intel Corporation
 // Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
 // SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
@@ -47,5 +47,5 @@ umf_memory_pool_ops_t BA_POOL_OPS = umf::poolMakeCOps<base_alloc_pool, void>();
 
 INSTANTIATE_TEST_SUITE_P(baPool, umfPoolTest,
                          ::testing::Values(poolCreateExtParams{
-                             &BA_POOL_OPS, nullptr,
-                             &umf_test::BASE_PROVIDER_OPS, nullptr}));
+                             &BA_POOL_OPS, nullptr, nullptr,
+                             &umf_test::BASE_PROVIDER_OPS, nullptr, nullptr}));

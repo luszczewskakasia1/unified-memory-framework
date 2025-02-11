@@ -1,4 +1,4 @@
-# Copyright (C) 2022-2024 Intel Corporation
+# Copyright (C) 2022-2025 Intel Corporation
 # Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
@@ -10,8 +10,12 @@ list(APPEND CMAKE_MODULE_PATH "${UMF_CMAKE_SOURCE_DIR}/cmake")
 # Use full path of the helpers module (to omit potential conflicts with others)
 include(${UMF_CMAKE_SOURCE_DIR}/cmake/helpers.cmake)
 
+# --------------------------------------------------------------------------- #
+# Set UMF version variables, define project, and add basic modules
+# --------------------------------------------------------------------------- #
+
 # We use semver aligned version, set via git tags. We parse git output to
-# establih the version of UMF to be used in CMake, Win dll's, and within the
+# establish the version of UMF to be used in CMake, Win dll's, and within the
 # code (e.g. in logger). We have 3-component releases (e.g. 1.5.1) plus release
 # candidates and git info. Function below sets all variables related to version.
 set_version_variables()
@@ -22,6 +26,12 @@ project(
     umf
     VERSION ${UMF_CMAKE_VERSION}
     LANGUAGES C)
+if(UMF_CMAKE_VERSION VERSION_EQUAL "0.0.0")
+    message(
+        WARNING
+            "UMF version is set to 0.0.0, which most likely is not expected! "
+            "Please checkout the git tags to get a proper version.")
+endif()
 
 if(PROJECT_VERSION_PATCH GREATER 0)
     # set extra variable for Windows dll metadata
@@ -33,36 +43,46 @@ include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
 find_package(PkgConfig)
 
-# Build Options
-option(UMF_BUILD_SHARED_LIBRARY "Build UMF as shared library" OFF)
-option(UMF_BUILD_LEVEL_ZERO_PROVIDER "Build Level Zero memory provider" ON)
-option(UMF_BUILD_CUDA_PROVIDER "Build CUDA memory provider" ON)
-option(UMF_BUILD_LIBUMF_POOL_DISJOINT
-       "Build the libumf_pool_disjoint static library" OFF)
-option(UMF_BUILD_LIBUMF_POOL_JEMALLOC
-       "Build the libumf_pool_jemalloc static library" OFF)
-option(UMF_BUILD_TESTS "Build UMF tests" ON)
-option(UMF_BUILD_GPU_TESTS "Build UMF GPU tests" OFF)
-option(UMF_BUILD_BENCHMARKS "Build UMF benchmarks" OFF)
-option(UMF_BUILD_BENCHMARKS_MT "Build UMF multithreaded benchmarks" OFF)
-option(UMF_BUILD_EXAMPLES "Build UMF examples" ON)
-option(UMF_BUILD_FUZZTESTS "Build UMF fuzz tests" OFF)
-option(UMF_BUILD_GPU_EXAMPLES "Build UMF GPU examples" OFF)
-option(UMF_DEVELOPER_MODE "Enable additional developer checks" OFF)
-option(
+# --------------------------------------------------------------------------- #
+# Set UMF build options (and CACHE variables)
+# --------------------------------------------------------------------------- #
+
+# Define a list to store the names of all options
+set(UMF_OPTIONS_LIST "")
+list(APPEND UMF_OPTIONS_LIST CMAKE_BUILD_TYPE)
+
+# Define a macro to wrap the option() command and track the options
+macro(umf_option)
+    list(APPEND UMF_OPTIONS_LIST ${ARGV0})
+    option(${ARGV})
+endmacro()
+
+umf_option(UMF_BUILD_SHARED_LIBRARY "Build UMF as shared library" OFF)
+umf_option(UMF_BUILD_LEVEL_ZERO_PROVIDER "Build Level Zero memory provider" ON)
+umf_option(UMF_BUILD_CUDA_PROVIDER "Build CUDA memory provider" ON)
+umf_option(UMF_BUILD_LIBUMF_POOL_DISJOINT
+           "Build the libumf_pool_disjoint static library" OFF)
+umf_option(UMF_BUILD_LIBUMF_POOL_JEMALLOC
+           "Build the libumf_pool_jemalloc static library" OFF)
+umf_option(UMF_BUILD_TESTS "Build UMF tests" ON)
+umf_option(UMF_BUILD_GPU_TESTS "Build UMF GPU tests" OFF)
+umf_option(UMF_BUILD_BENCHMARKS "Build UMF benchmarks" OFF)
+umf_option(UMF_BUILD_BENCHMARKS_MT "Build UMF multithreaded benchmarks" OFF)
+umf_option(UMF_BUILD_EXAMPLES "Build UMF examples" ON)
+umf_option(UMF_BUILD_GPU_EXAMPLES "Build UMF GPU examples" OFF)
+umf_option(UMF_BUILD_FUZZTESTS "Build UMF fuzz tests" OFF)
+umf_option(
     UMF_DISABLE_HWLOC
     "Disable hwloc and UMF features requiring it (OS provider, memtargets, topology discovery)"
     OFF)
-option(
+umf_option(
     UMF_LINK_HWLOC_STATICALLY
-    "Link UMF with HWLOC library statically (supported for Linux, MacOS and Release build on Windows)"
+    "Link UMF with HWLOC library statically (proxy library will be disabled on Windows+Debug build)"
     OFF)
-option(UMF_FORMAT_CODE_STYLE
-       "Add clang, cmake, and black -format-check and -format-apply targets"
-       OFF)
 set(UMF_HWLOC_NAME
     "hwloc"
     CACHE STRING "Custom name for hwloc library w/o extension")
+list(APPEND UMF_OPTIONS_LIST UMF_HWLOC_NAME)
 set(UMF_INSTALL_RPATH
     ""
     CACHE
@@ -70,14 +90,18 @@ set(UMF_INSTALL_RPATH
         "Set the runtime search path to the directory with dependencies (e.g. hwloc)"
 )
 
+umf_option(UMF_DEVELOPER_MODE "Enable additional developer checks" OFF)
+umf_option(
+    UMF_FORMAT_CODE_STYLE
+    "Add clang, cmake, and black -format-check and -format-apply targets" OFF)
 # Only a part of skips is treated as a failure now. TODO: extend to all tests
-option(UMF_TESTS_FAIL_ON_SKIP "Treat skips in tests as fail" OFF)
-option(UMF_USE_ASAN "Enable AddressSanitizer checks" OFF)
-option(UMF_USE_UBSAN "Enable UndefinedBehaviorSanitizer checks" OFF)
-option(UMF_USE_TSAN "Enable ThreadSanitizer checks" OFF)
-option(UMF_USE_MSAN "Enable MemorySanitizer checks" OFF)
-option(UMF_USE_VALGRIND "Enable Valgrind instrumentation" OFF)
-option(UMF_USE_COVERAGE "Build with coverage enabled (Linux only)" OFF)
+umf_option(UMF_TESTS_FAIL_ON_SKIP "Treat skips in tests as fail" OFF)
+umf_option(UMF_USE_ASAN "Enable AddressSanitizer checks" OFF)
+umf_option(UMF_USE_UBSAN "Enable UndefinedBehaviorSanitizer checks" OFF)
+umf_option(UMF_USE_TSAN "Enable ThreadSanitizer checks" OFF)
+umf_option(UMF_USE_MSAN "Enable MemorySanitizer checks" OFF)
+umf_option(UMF_USE_VALGRIND "Enable Valgrind instrumentation" OFF)
+umf_option(UMF_USE_COVERAGE "Build with coverage enabled (Linux only)" OFF)
 
 # set UMF_PROXY_LIB_BASED_ON_POOL to one of: SCALABLE or JEMALLOC
 set(KNOWN_PROXY_LIB_POOLS SCALABLE JEMALLOC)
@@ -87,6 +111,12 @@ set(UMF_PROXY_LIB_BASED_ON_POOL
           "A UMF pool the proxy library is based on (SCALABLE or JEMALLOC)")
 set_property(CACHE UMF_PROXY_LIB_BASED_ON_POOL
              PROPERTY STRINGS ${KNOWN_PROXY_LIB_POOLS})
+list(APPEND UMF_OPTIONS_LIST UMF_PROXY_LIB_BASED_ON_POOL)
+
+# --------------------------------------------------------------------------- #
+# Setup required variables, definitions; fetch dependencies; include
+# sub_directories based on build options; set flags; etc.
+# --------------------------------------------------------------------------- #
 
 if(UMF_BUILD_TESTS
    AND DEFINED ENV{CI}
@@ -109,6 +139,11 @@ elseif(${CMAKE_SYSTEM_NAME} MATCHES "Darwin")
     set(OS_NAME "macosx")
 else()
     message(FATAL_ERROR "Unknown OS type")
+endif()
+
+if(UMF_DEVELOPER_MODE)
+    set(UMF_COMMON_COMPILE_DEFINITIONS ${UMF_COMMON_COMPILE_DEFINITIONS}
+                                       UMF_DEVELOPER_MODE=1)
 endif()
 
 if(NOT UMF_BUILD_LIBUMF_POOL_JEMALLOC)
@@ -161,8 +196,13 @@ else()
         WORKING_DIRECTORY ${jemalloc_targ_SOURCE_DIR}
         OUTPUT ${jemalloc_targ_SOURCE_DIR}/Makefile
         DEPENDS ${jemalloc_targ_SOURCE_DIR}/configure)
+
+    if(NOT UMF_QEMU_BUILD)
+        set(MAKE_ARGUMENTS "-j$(nproc)")
+    endif()
+
     add_custom_command(
-        COMMAND make
+        COMMAND make ${MAKE_ARGUMENTS}
         WORKING_DIRECTORY ${jemalloc_targ_SOURCE_DIR}
         OUTPUT ${jemalloc_targ_SOURCE_DIR}/lib/libjemalloc.a
         DEPENDS ${jemalloc_targ_SOURCE_DIR}/Makefile)
@@ -192,6 +232,9 @@ if(JEMALLOC_FOUND OR JEMALLOC_LIBRARIES)
     message(STATUS "    JEMALLOC_LIBRARIES = ${JEMALLOC_LIBRARIES}")
     message(STATUS "    JEMALLOC_INCLUDE_DIRS = ${JEMALLOC_INCLUDE_DIRS}")
     message(STATUS "    JEMALLOC_LIBRARY_DIRS = ${JEMALLOC_LIBRARY_DIRS}")
+    if(WINDOWS)
+        message(STATUS "    JEMALLOC_DLL_DIRS = ${JEMALLOC_DLL_DIRS}")
+    endif()
 else()
     set(UMF_POOL_JEMALLOC_ENABLED FALSE)
     message(
@@ -239,10 +282,52 @@ else()
             SOURCE_SUBDIR contrib/windows-cmake/ FIND_PACKAGE_ARGS)
         FetchContent_MakeAvailable(hwloc_targ)
 
+        message(STATUS "hwloc CMAKE_GENERATOR: ${CMAKE_GENERATOR}")
+
+        if(CMAKE_GENERATOR STREQUAL "Ninja")
+            add_custom_command(
+                COMMAND ${CMAKE_COMMAND}
+                        -DCMAKE_INSTALL_PREFIX=${hwloc_targ_BINARY_DIR} -B build
+                WORKING_DIRECTORY
+                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/
+                OUTPUT
+                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/CMakeCache.txt
+            )
+            add_custom_command(
+                COMMAND ${CMAKE_COMMAND} --build build
+                WORKING_DIRECTORY
+                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/
+                OUTPUT
+                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/build/lib/hwloc.lib
+                DEPENDS
+                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/CMakeCache.txt
+            )
+            add_custom_command(
+                COMMAND ${CMAKE_COMMAND} --build build --target INSTALL
+                WORKING_DIRECTORY
+                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/
+                OUTPUT ${hwloc_targ_BINARY_DIR}/lib/hwloc.lib
+                DEPENDS
+                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/build/lib/hwloc.lib
+            )
+            add_custom_target(hwloc_prod
+                              DEPENDS ${hwloc_targ_BINARY_DIR}/lib/hwloc.lib)
+            target_link_libraries(
+                hwloc INTERFACE ${hwloc_targ_BINARY_DIR}/lib/hwloc.lib)
+            add_dependencies(hwloc hwloc_prod)
+
+            set(LIBHWLOC_LIBRARY_DIRS ${hwloc_targ_BINARY_DIR}/lib)
+            set(LIBHWLOC_LIBRARIES ${hwloc_targ_BINARY_DIR}/lib/hwloc.lib)
+        elseif(CMAKE_GENERATOR STREQUAL "NMake Makefiles")
+            set(LIBHWLOC_LIBRARY_DIRS ${hwloc_targ_BINARY_DIR}/)
+            set(LIBHWLOC_LIBRARIES ${hwloc_targ_BINARY_DIR}/hwloc.lib)
+        else()
+            set(LIBHWLOC_LIBRARY_DIRS ${hwloc_targ_BINARY_DIR}/$<CONFIG>)
+            set(LIBHWLOC_LIBRARIES ${hwloc_targ_BINARY_DIR}/$<CONFIG>/hwloc.lib)
+        endif()
+
         set(LIBHWLOC_INCLUDE_DIRS
             ${hwloc_targ_SOURCE_DIR}/include;${hwloc_targ_BINARY_DIR}/include)
-        set(LIBHWLOC_LIBRARY_DIRS
-            ${hwloc_targ_BINARY_DIR}/Release;${hwloc_targ_BINARY_DIR}/Debug)
     else()
         include(FetchContent)
         message(
@@ -265,8 +350,8 @@ else()
                 ./configure --prefix=${hwloc_targ_BINARY_DIR}
                 --enable-static=yes --enable-shared=no --disable-libxml2
                 --disable-pci --disable-levelzero --disable-opencl
-                --disable-cuda --disable-nvml --disable-libudev CFLAGS=-fPIC
-                CXXFLAGS=-fPIC
+                --disable-cuda --disable-nvml --disable-libudev --disable-rsmi
+                CFLAGS=-fPIC CXXFLAGS=-fPIC
             WORKING_DIRECTORY ${hwloc_targ_SOURCE_DIR}
             OUTPUT ${hwloc_targ_SOURCE_DIR}/Makefile
             DEPENDS ${hwloc_targ_SOURCE_DIR}/configure)
@@ -296,6 +381,10 @@ else()
     message(STATUS "    LIBHWLOC_LIBRARIES = ${LIBHWLOC_LIBRARIES}")
     message(STATUS "    LIBHWLOC_INCLUDE_DIRS = ${LIBHWLOC_INCLUDE_DIRS}")
     message(STATUS "    LIBHWLOC_LIBRARY_DIRS = ${LIBHWLOC_LIBRARY_DIRS}")
+    message(STATUS "    LIBHWLOC_API_VERSION = ${LIBHWLOC_API_VERSION}")
+    if(WINDOWS)
+        message(STATUS "    LIBHWLOC_DLL_DIRS = ${LIBHWLOC_DLL_DIRS}")
+    endif()
 endif()
 
 if(hwloc_targ_SOURCE_DIR)
@@ -365,11 +454,11 @@ if(UMF_BUILD_CUDA_PROVIDER AND (NOT UMF_CUDA_INCLUDE_DIR))
     set(CUDA_INCLUDE_DIRS
         ${cuda-headers_SOURCE_DIR}
         CACHE PATH "Path to CUDA headers")
-    message(STATUS "CUDA include directory: ${CUDA_INCLUDE_DIRS}")
+    message(STATUS "CUDA_INCLUDE_DIRS = ${CUDA_INCLUDE_DIRS}")
 elseif(UMF_BUILD_CUDA_PROVIDER)
     # Only header is needed to build UMF
     set(CUDA_INCLUDE_DIRS ${UMF_CUDA_INCLUDE_DIR})
-    message(STATUS "CUDA include directory: ${CUDA_INCLUDE_DIRS}")
+    message(STATUS "CUDA_INCLUDE_DIRS = ${CUDA_INCLUDE_DIRS}")
 endif()
 
 # This build type check is not possible on Windows when CMAKE_BUILD_TYPE is not
@@ -689,7 +778,7 @@ if(UMF_FORMAT_CODE_STYLE)
         add_custom_target(
             cmake-format-apply
             COMMAND ${CMAKE_FORMAT} --in-place ${format_cmake_list}
-            COMMENT "Format Cmake files using cmake-format")
+            COMMENT "Format CMake files using cmake-format")
     endif()
 
     if(BLACK)
@@ -748,6 +837,17 @@ if(UMF_FORMAT_CODE_STYLE)
                 "not available. Use commands specific for found tools (see the log above)."
         )
     endif()
+endif()
+
+find_package(Python3 3.8)
+if(Python3_FOUND)
+    message(STATUS "Adding 'docs' target for creating a documentation.")
+    add_custom_target(
+        docs
+        WORKING_DIRECTORY ${CMAKE_BINARY_DIR}
+        COMMAND UMF_VERSION=${UMF_CMAKE_VERSION} ${Python3_EXECUTABLE}
+                ${UMF_CMAKE_SOURCE_DIR}/docs/generate_docs.py
+        COMMENT "Generate HTML documentation using Doxygen")
 endif()
 
 # --------------------------------------------------------------------------- #

@@ -178,7 +178,7 @@ by a different library and the caller of the :any:`umfGetIPCHandle` function may
 The :any:`umfGetIPCHandle` function returns the IPC handle and its size. The IPC handle is a byte-copyable opaque
 data structure. The :any:`umf_ipc_handle_t` type is defined as a pointer to a byte array. The size of the handle
 might be different for different memory provider types. The code snippet below demonstrates how the IPC handle can
-be serialized for marshalling purposes.
+be serialized for marshaling purposes.
 
 .. code-block:: c
 
@@ -194,12 +194,15 @@ to another process it can be opened by the :any:`umfOpenIPCHandle` function.
 
 .. code-block:: c
 
-    void *mapped_buf = NULL;
-    umf_result = umfOpenIPCHandle(consumer_pool, ipc_handle, &mapped_buf);
+    umf_ipc_handler_handle_t ipc_handler = 0;
+    umf_result = umfPoolGetIPCHandler(consumer_pool, &ipc_handler);
 
-The :any:`umfOpenIPCHandle` function requires the memory pool handle and the IPC handle as input parameters. It maps
+    void *mapped_buf = NULL;
+    umf_result = umfOpenIPCHandle(ipc_handler, ipc_handle, &mapped_buf);
+
+The :any:`umfOpenIPCHandle` function requires the IPC handler and the IPC handle as input parameters. The IPC handler maps
 the handle to the current process address space and returns the pointer to the same memory region that was allocated
-in the producer process.
+in the producer process. To retrieve the IPC handler, the :any:`umfPoolGetIPCHandler` function is used.
 
 .. note::
     The virtual addresses of the memory region referred to by the IPC handle may not be the same in the producer and consumer processes.

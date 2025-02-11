@@ -38,12 +38,9 @@ Do changes for a release:
     - If previously we decided not to create such branch, create it now, based on the appropriate minor or major tag
   - For major/minor release start from the `main` branch
 - Add an entry to ChangeLog, remember to change the day of the week in the release date
-  - For major releases mention API and ABI compatibility with the previous release
-- Update project's version in a few places:
-  - For major and minor releases: `UMF_VERSION_CURRENT` in `include/umf/base.h` (the API version)
-  - `release` variable in `scripts/docs_config/conf.py` (for docs)
-  - `UMF_VERSION` variable in `.github/workflows/reusable_basic.yml` (for installation test)
-- For major releases update ABI version in `.map` and `.def` files
+  - For major and minor (prior 1.0.0) releases mention API and ABI compatibility with the previous release
+- For major and minor releases, update `UMF_VERSION_CURRENT` in `include/umf/base.h` (the API version)
+- For major and minor (prior 1.0.0) releases update ABI version in `.map` and `.def` files
   - These files are defined for all public libraries (`libumf` and `proxy_lib`, at the moment)
 - Commit these changes and tag the release:
   - `git commit -a -S -m "$VERSION release"`
@@ -52,6 +49,11 @@ Do changes for a release:
   - If stable branch for this release is required, create it:
     - `git checkout -b v$VER.x`
     - For some early versions (like `0.1.0`) we may omit creation of the branch
+- For major/minor release, when release is done, add an extra "dev" tag on the `main` branch:
+  - `git tag -a -s -m "Development version $VERSION+1" v$VERSION+1-dev`
+    - for example, when `v0.1.0` is released, the dev tag would be `v0.2.0-dev`
+    - if needed, further in time, an extra dev tag can be introduced, e.g. `v0.2.0-dev1`
+  - This way, the `main` branch will introduce itself as the next version
 
 ## Publish changes
 

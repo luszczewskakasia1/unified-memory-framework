@@ -58,7 +58,7 @@ __pycache__/
 *.py[cod]
 
 # Generated docs
-docs/
+docs_build/
 
 # Build files
 /build*/
@@ -83,3 +83,7 @@ out/
 # IDE Files
 /.vscode
 /.devcontainer
+
+# clangd files
+/.cache/clangd
+compile_commands.json

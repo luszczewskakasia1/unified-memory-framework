@@ -7,8 +7,6 @@ permissions:
   contents: read
 
 env:
-  # for installation testing - it should match with version set in git
-  UMF_VERSION: 0.11.0
   BUILD_DIR : "${{github.workspace}}/build"
   INSTL_DIR : "${{github.workspace}}/../install-dir"
   COVERAGE_DIR : "${{github.workspace}}/coverage"
@@ -76,15 +74,15 @@ jobs:
             disable_hwloc: 'OFF'
             link_hwloc_statically: 'OFF'
           # test icx compiler
-          # - os: 'ubuntu-22.04'
-            # build_type: Release
-            # compiler: {c: icx, cxx: icpx}
-            # shared_library: 'ON'
-            # level_zero_provider: 'ON'
-            # cuda_provider: 'ON'
-            # install_tbb: 'ON'
-            # disable_hwloc: 'OFF'
-            # link_hwloc_statically: 'OFF'
+          - os: 'ubuntu-22.04'
+            build_type: Release
+            compiler: {c: icx, cxx: icpx}
+            shared_library: 'ON'
+            level_zero_provider: 'ON'
+            cuda_provider: 'ON'
+            install_tbb: 'ON'
+            disable_hwloc: 'OFF'
+            link_hwloc_statically: 'OFF'
           # test without installing TBB
           - os: 'ubuntu-22.04'
             build_type: Release
@@ -147,8 +145,10 @@ jobs:
     - name: Install libhwloc
       run: .github/scripts/install_hwloc.sh
 
-    - name: Set ptrace value for IPC test
-      run: sudo bash -c "echo 0 > /proc/sys/kernel/yama/ptrace_scope"
+    - name: Get UMF version
+      run: |
+        VERSION=$(git describe --tags --abbrev=0 | grep -oP '\d+\.\d+\.\d+')
+        echo "UMF_VERSION=$VERSION" >> $GITHUB_ENV
 
     - name: Configure build
       run: >
@@ -180,7 +180,7 @@ jobs:
       working-directory: ${{env.BUILD_DIR}}
       run: |
         ${{ matrix.compiler.cxx == 'icpx' && '. /opt/intel/oneapi/setvars.sh' || true }}
-        ctest --output-on-failure # run all tests for better coverage
+        LD_LIBRARY_PATH="${{env.BUILD_DIR}}/lib/:${LD_LIBRARY_PATH}" ctest --output-on-failure
 
     - name: Check coverage
       if:  ${{ matrix.build_type == 'Debug' && matrix.compiler.c == 'gcc' }}
@@ -266,6 +266,12 @@ jobs:
       run: vcpkg install
       shell: pwsh # Specifies PowerShell as the shell for running the script.
 
+    - name: Get UMF version
+      run: |
+        $version = (git describe --tags --abbrev=0 | Select-String -Pattern '\d+\.\d+\.\d+').Matches.Value
+        echo "UMF_VERSION=$version" >> $env:GITHUB_ENV
+      shell: pwsh
+
     - name: Configure build
       run: >
         cmake
@@ -333,7 +339,7 @@ jobs:
         -B ${{env.BUILD_DIR}}
         -DCMAKE_INSTALL_PREFIX="${{env.INSTL_DIR}}"
         -DUMF_BUILD_SHARED_LIBRARY=ON
-        -DUMF_BUILD_EXAMPLES=OFF
+        -DUMF_BUILD_EXAMPLES=ON
         -DUMF_FORMAT_CODE_STYLE=OFF
         -DUMF_DEVELOPER_MODE=ON
         -DUMF_BUILD_LIBUMF_POOL_DISJOINT=ON
@@ -376,7 +382,7 @@ jobs:
         -B ${{env.BUILD_DIR}}
         -DCMAKE_INSTALL_PREFIX="${{env.INSTL_DIR}}"
         -DUMF_BUILD_SHARED_LIBRARY=OFF
-        -DUMF_BUILD_EXAMPLES=OFF
+        -DUMF_BUILD_EXAMPLES=ON
         -DUMF_FORMAT_CODE_STYLE=OFF
         -DUMF_DEVELOPER_MODE=ON
         -DUMF_BUILD_LIBUMF_POOL_DISJOINT=ON
@@ -448,6 +454,9 @@ jobs:
     strategy:
       matrix:
         os: ['macos-13', 'macos-14']
+        include:
+          - os: macos-14
+            static_hwloc: '-DUMF_LINK_HWLOC_STATICALLY=ON'
     env:
       BUILD_TYPE : "Release"
     runs-on: ${{matrix.os}}
@@ -466,8 +475,17 @@ jobs:
         echo "$PATH" >> $GITHUB_PATH
         python3 -m pip install -r third_party/requirements.txt
 
+    - name: Install dependencies
+      run: brew install jemalloc tbb automake libtool
+
     - name: Install hwloc
-      run: brew install hwloc tbb automake
+      if: ${{ !matrix.static_hwloc }}
+      run: brew install hwloc
+
+    - name: Get UMF version
+      run: |
+        VERSION=$(git describe --tags --abbrev=0 | grep -Eo '\d+\.\d+\.\d+')
+        echo "UMF_VERSION=$VERSION" >> $GITHUB_ENV
 
     - name: Configure build
       run: >
@@ -482,6 +500,7 @@ jobs:
         -DUMF_BUILD_LIBUMF_POOL_JEMALLOC=ON
         -DUMF_BUILD_SHARED_LIBRARY=ON
         -DUMF_TESTS_FAIL_ON_SKIP=ON
+        ${{matrix.static_hwloc}}
 
     - name: Build UMF
       run: cmake --build ${{env.BUILD_DIR}} -j $(sysctl -n hw.logicalcpu)

@@ -1,12 +1,12 @@
 ;;;; Begin Copyright Notice
-; Copyright (C) 2024 Intel Corporation
+; Copyright (C) 2023-2025 Intel Corporation
 ; Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
 ; SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 ;;;;  End Copyright Notice
 
-LIBRARY umf
+LIBRARY UMF
 
-VERSION 1.0
+VERSION 0.11
 
 EXPORTS
     DllMain
@@ -25,13 +25,13 @@ EXPORTS
     umfDevDaxMemoryProviderParamsDestroy
     umfDevDaxMemoryProviderParamsSetDeviceDax
     umfDevDaxMemoryProviderParamsSetProtection
-    umfFree
     umfFileMemoryProviderOps
     umfFileMemoryProviderParamsCreate
     umfFileMemoryProviderParamsDestroy
     umfFileMemoryProviderParamsSetPath
     umfFileMemoryProviderParamsSetProtection
     umfFileMemoryProviderParamsSetVisibility
+    umfFree
     umfGetIPCHandle
     umfGetLastFailedMemoryProvider
     umfJemallocPoolOps
@@ -101,6 +101,7 @@ EXPORTS
     umfPoolCreateFromMemspace
     umfPoolDestroy
     umfPoolFree
+    umfPoolGetIPCHandler
     umfPoolGetIPCHandleSize
     umfPoolGetLastAllocationError
     umfPoolGetTag
@@ -116,3 +117,9 @@ EXPORTS
     umfScalablePoolParamsDestroy
     umfScalablePoolParamsSetGranularity
     umfScalablePoolParamsSetKeepAllMemory
+; Added in UMF_0.11
+    umfFixedMemoryProviderOps
+    umfFixedMemoryProviderParamsCreate
+    umfFixedMemoryProviderParamsDestroy
+    umfLevelZeroMemoryProviderParamsSetFreePolicy
+    umfLevelZeroMemoryProviderParamsSetDeviceOrdinal

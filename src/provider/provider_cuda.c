@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2025 Intel Corporation
  *
  * Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -12,17 +12,21 @@
 #include <umf.h>
 #include <umf/providers/provider_cuda.h>
 
+#include "utils_log.h"
+
 #if defined(UMF_NO_CUDA_PROVIDER)
 
 umf_result_t umfCUDAMemoryProviderParamsCreate(
     umf_cuda_memory_provider_params_handle_t *hParams) {
     (void)hParams;
+    LOG_ERR("CUDA provider is disabled (UMF_BUILD_CUDA_PROVIDER is OFF)!");
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
 umf_result_t umfCUDAMemoryProviderParamsDestroy(
     umf_cuda_memory_provider_params_handle_t hParams) {
     (void)hParams;
+    LOG_ERR("CUDA provider is disabled (UMF_BUILD_CUDA_PROVIDER is OFF)!");
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
@@ -30,6 +34,7 @@ umf_result_t umfCUDAMemoryProviderParamsSetContext(
     umf_cuda_memory_provider_params_handle_t hParams, void *hContext) {
     (void)hParams;
     (void)hContext;
+    LOG_ERR("CUDA provider is disabled (UMF_BUILD_CUDA_PROVIDER is OFF)!");
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
@@ -37,6 +42,7 @@ umf_result_t umfCUDAMemoryProviderParamsSetDevice(
     umf_cuda_memory_provider_params_handle_t hParams, int hDevice) {
     (void)hParams;
     (void)hDevice;
+    LOG_ERR("CUDA provider is disabled (UMF_BUILD_CUDA_PROVIDER is OFF)!");
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
@@ -45,11 +51,13 @@ umf_result_t umfCUDAMemoryProviderParamsSetMemoryType(
     umf_usm_memory_type_t memoryType) {
     (void)hParams;
     (void)memoryType;
+    LOG_ERR("CUDA provider is disabled (UMF_BUILD_CUDA_PROVIDER is OFF)!");
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
 umf_memory_provider_ops_t *umfCUDAMemoryProviderOps(void) {
     // not supported
+    LOG_ERR("CUDA provider is disabled (UMF_BUILD_CUDA_PROVIDER is OFF)!");
     return NULL;
 }
 
@@ -142,7 +150,6 @@ static umf_result_t cu2umf_result(CUresult result) {
         return UMF_RESULT_ERROR_OUT_OF_HOST_MEMORY;
     case CUDA_ERROR_INVALID_VALUE:
     case CUDA_ERROR_INVALID_HANDLE:
-    case CUDA_ERROR_INVALID_RESOURCE_TYPE:
         return UMF_RESULT_ERROR_INVALID_ARGUMENT;
     default:
         cu_store_last_native_error(result);
@@ -305,7 +312,7 @@ static umf_result_t cu_memory_provider_initialize(void *params,
     CUmemAllocationProp allocProps = {0};
     allocProps.location.type = CU_MEM_LOCATION_TYPE_DEVICE;
     allocProps.type = CU_MEM_ALLOCATION_TYPE_PINNED;
-    allocProps.location.id = cu_provider->device;
+    allocProps.location.id = cu_params->cuda_device_handle;
     CUresult cu_result = g_cu_ops.cuMemGetAllocationGranularity(
         &min_alignment, &allocProps, CU_MEM_ALLOC_GRANULARITY_MINIMUM);
     if (cu_result != CUDA_SUCCESS) {
@@ -425,6 +432,14 @@ static umf_result_t cu_memory_provider_free(void *provider, void *ptr,
 
     cu_memory_provider_t *cu_provider = (cu_memory_provider_t *)provider;
 
+    // Remember current context and set the one from the provider
+    CUcontext restore_ctx = NULL;
+    umf_result_t umf_result = set_context(cu_provider->context, &restore_ctx);
+    if (umf_result != UMF_RESULT_SUCCESS) {
+        LOG_ERR("Failed to set CUDA context, ret = %d", umf_result);
+        return umf_result;
+    }
+
     CUresult cu_result = CUDA_SUCCESS;
     switch (cu_provider->memory_type) {
     case UMF_MEMORY_TYPE_HOST: {
@@ -441,6 +456,11 @@ static umf_result_t cu_memory_provider_free(void *provider, void *ptr,
         // the initialization
         LOG_ERR("unsupported USM memory type");
         return UMF_RESULT_ERROR_UNKNOWN;
+    }
+
+    umf_result = set_context(restore_ctx, &restore_ctx);
+    if (umf_result != UMF_RESULT_SUCCESS) {
+        LOG_ERR("Failed to restore CUDA context, ret = %d", umf_result);
     }
 
     return cu2umf_result(cu_result);
@@ -573,7 +593,10 @@ static umf_result_t cu_memory_provider_open_ipc_handle(void *provider,
         LOG_ERR("cuIpcOpenMemHandle() failed.");
     }
 
-    set_context(restore_ctx, &restore_ctx);
+    umf_result = set_context(restore_ctx, &restore_ctx);
+    if (umf_result != UMF_RESULT_SUCCESS) {
+        LOG_ERR("Failed to restore CUDA context, ret = %d", umf_result);
+    }
 
     return cu2umf_result(cu_result);
 }

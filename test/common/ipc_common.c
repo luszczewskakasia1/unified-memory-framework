@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2025 Intel Corporation
  *
  * Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -9,6 +9,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/prctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
 
@@ -138,6 +139,13 @@ int run_consumer(int port, umf_memory_pool_ops_t *pool_ops, void *pool_params,
         goto err_umfMemoryProviderDestroy;
     }
 
+    umf_ipc_handler_handle_t ipc_handler;
+    umf_result = umfPoolGetIPCHandler(pool, &ipc_handler);
+    if (umf_result != UMF_RESULT_SUCCESS) {
+        fprintf(stderr, "[consumer] ERROR: get IPC handler failed\n");
+        goto err_umfMemoryPoolDestroy;
+    }
+
     producer_socket = consumer_connect(port);
     if (producer_socket < 0) {
         goto err_umfMemoryPoolDestroy;
@@ -195,7 +203,7 @@ int run_consumer(int port, umf_memory_pool_ops_t *pool_ops, void *pool_params,
         len);
 
     void *SHM_ptr;
-    umf_result = umfOpenIPCHandle(pool, IPC_handle, &SHM_ptr);
+    umf_result = umfOpenIPCHandle(ipc_handler, IPC_handle, &SHM_ptr);
     if (umf_result == UMF_RESULT_ERROR_NOT_SUPPORTED) {
         fprintf(stderr,
                 "[consumer] SKIP: opening the IPC handle is not supported\n");
@@ -328,6 +336,12 @@ int run_producer(int port, umf_memory_pool_ops_t *pool_ops, void *pool_params,
     umf_result_t umf_result = UMF_RESULT_ERROR_UNKNOWN;
     int producer_socket = -1;
     char consumer_message[MSG_SIZE];
+
+    ret = prctl(PR_SET_PTRACER, getppid());
+    if (ret == -1) {
+        perror("PR_SET_PTRACER may be not supported. prctl() call failed");
+        goto err_end;
+    }
 
     // create OS memory provider
     umf_result =
@@ -521,6 +535,7 @@ err_umfMemoryPoolDestroy:
 err_umfMemoryProviderDestroy:
     umfMemoryProviderDestroy(provider);
 
+err_end:
     if (ret == 0) {
         fprintf(stderr, "[producer] Shutting down (status OK) ...\n");
     } else if (ret == 1) {

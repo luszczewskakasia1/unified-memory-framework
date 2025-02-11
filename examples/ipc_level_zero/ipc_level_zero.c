@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2025 Intel Corporation
  *
  * Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -104,7 +104,7 @@ int main(void) {
     const size_t BUFFER_PATTERN = 0x42;
     int ret = init_level_zero();
     if (ret != 0) {
-        fprintf(stderr, "ERROR: Failed to init Level 0!\n");
+        fprintf(stderr, "ERROR: Failed to init Level Zero!\n");
         return ret;
     }
 
@@ -180,14 +180,21 @@ int main(void) {
 
     fprintf(stdout, "Consumer pool created.\n");
 
+    umf_ipc_handler_handle_t ipc_handler = 0;
+    umf_result = umfPoolGetIPCHandler(consumer_pool, &ipc_handler);
+    if (umf_result != UMF_RESULT_SUCCESS) {
+        fprintf(stderr, "ERROR: Failed to get IPC handler!\n");
+        return -1;
+    }
+
     void *mapped_buf = NULL;
-    umf_result = umfOpenIPCHandle(consumer_pool, ipc_handle, &mapped_buf);
+    umf_result = umfOpenIPCHandle(ipc_handler, ipc_handle, &mapped_buf);
     if (umf_result != UMF_RESULT_SUCCESS) {
         fprintf(stderr, "ERROR: Failed to open IPC handle!\n");
         return -1;
     }
 
-    fprintf(stdout, "IPC handle opened in the consumer pool.\n");
+    fprintf(stdout, "IPC handle opened.\n");
 
     size_t *tmp_buf = malloc(BUFFER_SIZE);
     ret = level_zero_copy(consumer_context, device, tmp_buf, mapped_buf,

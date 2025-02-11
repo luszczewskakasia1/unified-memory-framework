@@ -58,6 +58,9 @@ supported by the Proxy Pool.
 
 Scalable Pool
 ------------------------------------------
+
+A oneTBB-based memory pool manager.
+
 .. doxygenfile:: pool_scalable.h
     :sections: define enum typedef func var
 
@@ -80,17 +83,12 @@ and operate on the provider.
 .. doxygenfile:: memory_provider.h
     :sections: define enum typedef func var
 
-Coarse Provider
+Fixed Memory Provider
 ------------------------------------------
 
-A memory provider that can provide memory from:
+A memory provider that can provide memory from a given preallocated buffer.
 
-1) A given pre-allocated buffer (the fixed-size memory provider option) or
-2) From an additional upstream provider (e.g. provider that does not support 
-   the free() operation like the File memory provider or the DevDax memory 
-   provider - see below).
-
-.. doxygenfile:: provider_coarse.h
+.. doxygenfile:: provider_fixed_memory.h
     :sections: define enum typedef func var
 
 OS Memory Provider
@@ -109,10 +107,18 @@ A memory provider that provides memory from L0 device.
 .. doxygenfile:: provider_level_zero.h
     :sections: define enum typedef func var
 
+CUDA Provider
+------------------------------------------
+
+A memory provider that provides memory from CUDA device.
+
+.. doxygenfile:: provider_cuda.h
+    :sections: define enum typedef func var
+
 DevDax Memory Provider
 ------------------------------------------
 
-A memory provider that provides memory from a device DAX (a character device file /dev/daxX.Y).
+A memory provider that provides memory from a device DAX (a character device file like /dev/daxX.Y).
 
 .. doxygenfile:: provider_devdax_memory.h
     :sections: define enum typedef func var

@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2025 Intel Corporation
  *
  * Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -14,17 +14,23 @@
 #include <umf/memory_provider_ops.h>
 #include <umf/providers/provider_level_zero.h>
 
+#include "utils_log.h"
+
 #if defined(UMF_NO_LEVEL_ZERO_PROVIDER)
 
 umf_result_t umfLevelZeroMemoryProviderParamsCreate(
     umf_level_zero_memory_provider_params_handle_t *hParams) {
     (void)hParams;
+    LOG_ERR("L0 memory provider is disabled! (UMF_BUILD_LEVEL_ZERO_PROVIDER is "
+            "OFF)");
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
 umf_result_t umfLevelZeroMemoryProviderParamsDestroy(
     umf_level_zero_memory_provider_params_handle_t hParams) {
     (void)hParams;
+    LOG_ERR("L0 memory provider is disabled! (UMF_BUILD_LEVEL_ZERO_PROVIDER is "
+            "OFF)");
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
@@ -33,6 +39,8 @@ umf_result_t umfLevelZeroMemoryProviderParamsSetContext(
     ze_context_handle_t hContext) {
     (void)hParams;
     (void)hContext;
+    LOG_ERR("L0 memory provider is disabled! (UMF_BUILD_LEVEL_ZERO_PROVIDER is "
+            "OFF)");
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
@@ -41,6 +49,8 @@ umf_result_t umfLevelZeroMemoryProviderParamsSetDevice(
     ze_device_handle_t hDevice) {
     (void)hParams;
     (void)hDevice;
+    LOG_ERR("L0 memory provider is disabled! (UMF_BUILD_LEVEL_ZERO_PROVIDER is "
+            "OFF)");
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
@@ -49,6 +59,8 @@ umf_result_t umfLevelZeroMemoryProviderParamsSetMemoryType(
     umf_usm_memory_type_t memoryType) {
     (void)hParams;
     (void)memoryType;
+    LOG_ERR("L0 memory provider is disabled! (UMF_BUILD_LEVEL_ZERO_PROVIDER is "
+            "OFF)");
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
@@ -58,11 +70,31 @@ umf_result_t umfLevelZeroMemoryProviderParamsSetResidentDevices(
     (void)hParams;
     (void)hDevices;
     (void)deviceCount;
+    LOG_ERR("L0 memory provider is disabled! (UMF_BUILD_LEVEL_ZERO_PROVIDER is "
+            "OFF)");
+    return UMF_RESULT_ERROR_NOT_SUPPORTED;
+}
+
+umf_result_t umfLevelZeroMemoryProviderParamsSetFreePolicy(
+    umf_level_zero_memory_provider_params_handle_t hParams,
+    umf_level_zero_memory_provider_free_policy_t policy) {
+    (void)hParams;
+    (void)policy;
+    return UMF_RESULT_ERROR_NOT_SUPPORTED;
+}
+
+umf_result_t umfLevelZeroMemoryProviderParamsSetDeviceOrdinal(
+    umf_level_zero_memory_provider_params_handle_t hParams,
+    uint32_t deviceOrdinal) {
+    (void)hParams;
+    (void)deviceOrdinal;
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
 umf_memory_provider_ops_t *umfLevelZeroMemoryProviderOps(void) {
     // not supported
+    LOG_ERR("L0 memory provider is disabled! (UMF_BUILD_LEVEL_ZERO_PROVIDER is "
+            "OFF)");
     return NULL;
 }
 
@@ -91,6 +123,11 @@ typedef struct umf_level_zero_memory_provider_params_t {
         resident_device_handles; ///< Array of devices for which the memory should be made resident
     uint32_t
         resident_device_count; ///< Number of devices for which the memory should be made resident
+
+    umf_level_zero_memory_provider_free_policy_t
+        freePolicy; ///< Memory free policy
+
+    uint32_t device_ordinal;
 } umf_level_zero_memory_provider_params_t;
 
 typedef struct ze_memory_provider_t {
@@ -102,6 +139,12 @@ typedef struct ze_memory_provider_t {
     uint32_t resident_device_count;
 
     ze_device_properties_t device_properties;
+
+    ze_driver_memory_free_policy_ext_flags_t freePolicyFlags;
+
+    size_t min_page_size;
+
+    uint32_t device_ordinal;
 } ze_memory_provider_t;
 
 typedef struct ze_ops_t {
@@ -128,6 +171,11 @@ typedef struct ze_ops_t {
                                                size_t);
     ze_result_t (*zeDeviceGetProperties)(ze_device_handle_t,
                                          ze_device_properties_t *);
+    ze_result_t (*zeMemFreeExt)(ze_context_handle_t,
+                                ze_memory_free_ext_desc_t *, void *);
+    ze_result_t (*zeMemGetAllocProperties)(ze_context_handle_t, const void *,
+                                           ze_memory_allocation_properties_t *,
+                                           ze_device_handle_t *);
 } ze_ops_t;
 
 static ze_ops_t g_ze_ops;
@@ -181,13 +229,17 @@ static void init_ze_global_state(void) {
         utils_get_symbol_addr(0, "zeContextMakeMemoryResident", lib_name);
     *(void **)&g_ze_ops.zeDeviceGetProperties =
         utils_get_symbol_addr(0, "zeDeviceGetProperties", lib_name);
+    *(void **)&g_ze_ops.zeMemFreeExt =
+        utils_get_symbol_addr(0, "zeMemFreeExt", lib_name);
+    *(void **)&g_ze_ops.zeMemGetAllocProperties =
+        utils_get_symbol_addr(0, "zeMemGetAllocProperties", lib_name);
 
     if (!g_ze_ops.zeMemAllocHost || !g_ze_ops.zeMemAllocDevice ||
         !g_ze_ops.zeMemAllocShared || !g_ze_ops.zeMemFree ||
         !g_ze_ops.zeMemGetIpcHandle || !g_ze_ops.zeMemOpenIpcHandle ||
         !g_ze_ops.zeMemCloseIpcHandle ||
         !g_ze_ops.zeContextMakeMemoryResident ||
-        !g_ze_ops.zeDeviceGetProperties) {
+        !g_ze_ops.zeDeviceGetProperties || !g_ze_ops.zeMemGetAllocProperties) {
         // g_ze_ops.zeMemPutIpcHandle can be NULL because it was introduced
         // starting from Level Zero 1.6
         LOG_ERR("Required Level Zero symbols not found.");
@@ -199,7 +251,7 @@ umf_result_t umfLevelZeroMemoryProviderParamsCreate(
     umf_level_zero_memory_provider_params_handle_t *hParams) {
     libumfInit();
     if (!hParams) {
-        LOG_ERR("Level zero memory provider params handle is NULL");
+        LOG_ERR("Level Zero memory provider params handle is NULL");
         return UMF_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
@@ -216,6 +268,8 @@ umf_result_t umfLevelZeroMemoryProviderParamsCreate(
     params->memory_type = UMF_MEMORY_TYPE_UNKNOWN;
     params->resident_device_handles = NULL;
     params->resident_device_count = 0;
+    params->freePolicy = UMF_LEVEL_ZERO_MEMORY_PROVIDER_FREE_POLICY_DEFAULT;
+    params->device_ordinal = 0;
 
     *hParams = params;
 
@@ -233,12 +287,12 @@ umf_result_t umfLevelZeroMemoryProviderParamsSetContext(
     umf_level_zero_memory_provider_params_handle_t hParams,
     ze_context_handle_t hContext) {
     if (!hParams) {
-        LOG_ERR("Level zero memory provider params handle is NULL");
+        LOG_ERR("Level Zero memory provider params handle is NULL");
         return UMF_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     if (!hContext) {
-        LOG_ERR("Level zero context handle is NULL");
+        LOG_ERR("Level Zero context handle is NULL");
         return UMF_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
@@ -251,7 +305,7 @@ umf_result_t umfLevelZeroMemoryProviderParamsSetDevice(
     umf_level_zero_memory_provider_params_handle_t hParams,
     ze_device_handle_t hDevice) {
     if (!hParams) {
-        LOG_ERR("Level zero memory provider params handle is NULL");
+        LOG_ERR("Level Zero memory provider params handle is NULL");
         return UMF_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
@@ -264,7 +318,7 @@ umf_result_t umfLevelZeroMemoryProviderParamsSetMemoryType(
     umf_level_zero_memory_provider_params_handle_t hParams,
     umf_usm_memory_type_t memoryType) {
     if (!hParams) {
-        LOG_ERR("Level zero memory provider params handle is NULL");
+        LOG_ERR("Level Zero memory provider params handle is NULL");
         return UMF_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
@@ -273,11 +327,23 @@ umf_result_t umfLevelZeroMemoryProviderParamsSetMemoryType(
     return UMF_RESULT_SUCCESS;
 }
 
+umf_result_t umfLevelZeroMemoryProviderParamsSetDeviceOrdinal(
+    umf_level_zero_memory_provider_params_handle_t hParams,
+    uint32_t deviceOrdinal) {
+    if (!hParams) {
+        LOG_ERR("Level Zero memory provider params handle is NULL");
+        return UMF_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+    hParams->device_ordinal = deviceOrdinal;
+
+    return UMF_RESULT_SUCCESS;
+}
+
 umf_result_t umfLevelZeroMemoryProviderParamsSetResidentDevices(
     umf_level_zero_memory_provider_params_handle_t hParams,
     ze_device_handle_t *hDevices, uint32_t deviceCount) {
     if (!hParams) {
-        LOG_ERR("Level zero memory provider params handle is NULL");
+        LOG_ERR("Level Zero memory provider params handle is NULL");
         return UMF_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
@@ -292,96 +358,31 @@ umf_result_t umfLevelZeroMemoryProviderParamsSetResidentDevices(
     return UMF_RESULT_SUCCESS;
 }
 
-static umf_result_t ze_memory_provider_initialize(void *params,
-                                                  void **provider) {
-    if (params == NULL) {
+umf_result_t umfLevelZeroMemoryProviderParamsSetFreePolicy(
+    umf_level_zero_memory_provider_params_handle_t hParams,
+    umf_level_zero_memory_provider_free_policy_t policy) {
+    if (!hParams) {
+        LOG_ERR("Level Zero memory provider params handle is NULL");
         return UMF_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
-    umf_level_zero_memory_provider_params_handle_t ze_params =
-        (umf_level_zero_memory_provider_params_handle_t)params;
-
-    if (!ze_params->level_zero_context_handle) {
-        LOG_ERR("Level Zero context handle is NULL");
-        return UMF_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    if ((ze_params->memory_type == UMF_MEMORY_TYPE_HOST) ==
-        (ze_params->level_zero_device_handle != NULL)) {
-        LOG_ERR("Level Zero device handle is NULL");
-        return UMF_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    if ((bool)ze_params->resident_device_count &&
-        (ze_params->resident_device_handles == NULL)) {
-        LOG_ERR("Resident devices handles array is NULL, but device_count is "
-                "not zero");
-        return UMF_RESULT_ERROR_INVALID_ARGUMENT;
-    }
-
-    utils_init_once(&ze_is_initialized, init_ze_global_state);
-    if (Init_ze_global_state_failed) {
-        LOG_ERR("Loading Level Zero symbols failed");
-        return UMF_RESULT_ERROR_UNKNOWN;
-    }
-
-    ze_memory_provider_t *ze_provider =
-        umf_ba_global_alloc(sizeof(ze_memory_provider_t));
-    if (!ze_provider) {
-        LOG_ERR("Cannot allocate memory for Level Zero Memory Provider");
-        return UMF_RESULT_ERROR_OUT_OF_HOST_MEMORY;
-    }
-
-    ze_provider->context = ze_params->level_zero_context_handle;
-    ze_provider->device = ze_params->level_zero_device_handle;
-    ze_provider->memory_type = (ze_memory_type_t)ze_params->memory_type;
-
-    if (ze_provider->device) {
-        umf_result_t ret = ze2umf_result(g_ze_ops.zeDeviceGetProperties(
-            ze_provider->device, &ze_provider->device_properties));
-
-        if (ret != UMF_RESULT_SUCCESS) {
-            LOG_ERR("Cannot get device properties");
-            umf_ba_global_free(ze_provider);
-            return ret;
-        }
-    } else {
-        memset(&ze_provider->device_properties, 0,
-               sizeof(ze_provider->device_properties));
-    }
-
-    if (ze_params->resident_device_count) {
-        ze_provider->resident_device_handles = umf_ba_global_alloc(
-            sizeof(ze_device_handle_t) * ze_params->resident_device_count);
-        if (!ze_provider->resident_device_handles) {
-            LOG_ERR("Cannot allocate memory for resident devices");
-            umf_ba_global_free(ze_provider);
-            return UMF_RESULT_ERROR_OUT_OF_HOST_MEMORY;
-        }
-
-        ze_provider->resident_device_count = ze_params->resident_device_count;
-
-        for (uint32_t i = 0; i < ze_provider->resident_device_count; i++) {
-            ze_provider->resident_device_handles[i] =
-                ze_params->resident_device_handles[i];
-        }
-    } else {
-        ze_provider->resident_device_handles = NULL;
-        ze_provider->resident_device_count = 0;
-    }
-
-    *provider = ze_provider;
-
+    hParams->freePolicy = policy;
     return UMF_RESULT_SUCCESS;
 }
 
-static void ze_memory_provider_finalize(void *provider) {
-    ze_memory_provider_t *ze_provider = (ze_memory_provider_t *)provider;
-    umf_ba_global_free(ze_provider->resident_device_handles);
-
-    umf_ba_global_free(provider);
+static ze_driver_memory_free_policy_ext_flags_t
+umfFreePolicyToZePolicy(umf_level_zero_memory_provider_free_policy_t policy) {
+    switch (policy) {
+    case UMF_LEVEL_ZERO_MEMORY_PROVIDER_FREE_POLICY_DEFAULT:
+        return 0;
+    case UMF_LEVEL_ZERO_MEMORY_PROVIDER_FREE_POLICY_BLOCKING_FREE:
+        return ZE_DRIVER_MEMORY_FREE_POLICY_EXT_FLAG_BLOCKING_FREE;
+    case UMF_LEVEL_ZERO_MEMORY_PROVIDER_FREE_POLICY_DEFER_FREE:
+        return ZE_DRIVER_MEMORY_FREE_POLICY_EXT_FLAG_DEFER_FREE;
+    default:
+        return 0;
+    }
 }
-
 static bool use_relaxed_allocation(ze_memory_provider_t *ze_provider,
                                    size_t size) {
     assert(ze_provider);
@@ -419,8 +420,7 @@ static umf_result_t ze_memory_provider_alloc(void *provider, size_t size,
                          ? &relaxed_device_allocation_desc
                          : NULL,
             .flags = 0,
-            .ordinal = 0 // TODO
-        };
+            .ordinal = ze_provider->device_ordinal};
         ze_result = g_ze_ops.zeMemAllocDevice(ze_provider->context, &dev_desc,
                                               size, alignment,
                                               ze_provider->device, resultPtr);
@@ -437,8 +437,7 @@ static umf_result_t ze_memory_provider_alloc(void *provider, size_t size,
                          ? &relaxed_device_allocation_desc
                          : NULL,
             .flags = 0,
-            .ordinal = 0 // TODO
-        };
+            .ordinal = ze_provider->device_ordinal};
         ze_result = g_ze_ops.zeMemAllocShared(ze_provider->context, &dev_desc,
                                               &host_desc, size, alignment,
                                               ze_provider->device, resultPtr);
@@ -476,8 +475,145 @@ static umf_result_t ze_memory_provider_free(void *provider, void *ptr,
     }
 
     ze_memory_provider_t *ze_provider = (ze_memory_provider_t *)provider;
-    ze_result_t ze_result = g_ze_ops.zeMemFree(ze_provider->context, ptr);
+
+    if (ze_provider->freePolicyFlags == 0) {
+        return ze2umf_result(g_ze_ops.zeMemFree(ze_provider->context, ptr));
+    }
+
+    ze_memory_free_ext_desc_t desc = {
+        .stype = ZE_STRUCTURE_TYPE_MEMORY_FREE_EXT_DESC,
+        .pNext = NULL,
+        .freePolicy = ze_provider->freePolicyFlags};
+
+    return ze2umf_result(
+        g_ze_ops.zeMemFreeExt(ze_provider->context, &desc, ptr));
+}
+
+static umf_result_t query_min_page_size(ze_memory_provider_t *ze_provider,
+                                        size_t *min_page_size) {
+    assert(min_page_size);
+
+    LOG_DEBUG("Querying minimum page size");
+
+    void *ptr;
+    umf_result_t result = ze_memory_provider_alloc(ze_provider, 1, 0, &ptr);
+    if (result != UMF_RESULT_SUCCESS) {
+        return result;
+    }
+
+    ze_memory_allocation_properties_t properties = {
+        .stype = ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES};
+    ze_result_t ze_result = g_ze_ops.zeMemGetAllocProperties(
+        ze_provider->context, ptr, &properties, NULL);
+
+    *min_page_size = properties.pageSize;
+
+    ze_memory_provider_free(ze_provider, ptr, 1);
+
     return ze2umf_result(ze_result);
+}
+
+static void ze_memory_provider_finalize(void *provider) {
+    ze_memory_provider_t *ze_provider = (ze_memory_provider_t *)provider;
+    umf_ba_global_free(ze_provider->resident_device_handles);
+
+    umf_ba_global_free(provider);
+}
+
+static umf_result_t ze_memory_provider_initialize(void *params,
+                                                  void **provider) {
+    if (params == NULL) {
+        return UMF_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    umf_level_zero_memory_provider_params_handle_t ze_params =
+        (umf_level_zero_memory_provider_params_handle_t)params;
+
+    if (!ze_params->level_zero_context_handle) {
+        LOG_ERR("Level Zero context handle is NULL");
+        return UMF_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if ((ze_params->memory_type == UMF_MEMORY_TYPE_HOST) ==
+        (ze_params->level_zero_device_handle != NULL)) {
+        LOG_ERR("Level Zero device handle should be set only for device and "
+                "shared memory types");
+        return UMF_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if ((bool)ze_params->resident_device_count &&
+        (ze_params->resident_device_handles == NULL)) {
+        LOG_ERR("Resident devices handles array is NULL, but device_count is "
+                "not zero");
+        return UMF_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    utils_init_once(&ze_is_initialized, init_ze_global_state);
+    if (Init_ze_global_state_failed) {
+        LOG_ERR("Loading Level Zero symbols failed");
+        return UMF_RESULT_ERROR_UNKNOWN;
+    }
+
+    ze_memory_provider_t *ze_provider =
+        umf_ba_global_alloc(sizeof(ze_memory_provider_t));
+    if (!ze_provider) {
+        LOG_ERR("Cannot allocate memory for Level Zero Memory Provider");
+        return UMF_RESULT_ERROR_OUT_OF_HOST_MEMORY;
+    }
+
+    ze_provider->context = ze_params->level_zero_context_handle;
+    ze_provider->device = ze_params->level_zero_device_handle;
+    ze_provider->memory_type = (ze_memory_type_t)ze_params->memory_type;
+    ze_provider->freePolicyFlags =
+        umfFreePolicyToZePolicy(ze_params->freePolicy);
+    ze_provider->min_page_size = 0;
+    ze_provider->device_ordinal = ze_params->device_ordinal;
+
+    memset(&ze_provider->device_properties, 0,
+           sizeof(ze_provider->device_properties));
+    ze_provider->device_properties.stype = ZE_STRUCTURE_TYPE_DEVICE_PROPERTIES;
+
+    if (ze_provider->device) {
+        umf_result_t ret = ze2umf_result(g_ze_ops.zeDeviceGetProperties(
+            ze_provider->device, &ze_provider->device_properties));
+
+        if (ret != UMF_RESULT_SUCCESS) {
+            LOG_ERR("Cannot get device properties");
+            umf_ba_global_free(ze_provider);
+            return ret;
+        }
+    }
+
+    if (ze_params->resident_device_count) {
+        ze_provider->resident_device_handles = umf_ba_global_alloc(
+            sizeof(ze_device_handle_t) * ze_params->resident_device_count);
+        if (!ze_provider->resident_device_handles) {
+            LOG_ERR("Cannot allocate memory for resident devices");
+            umf_ba_global_free(ze_provider);
+            return UMF_RESULT_ERROR_OUT_OF_HOST_MEMORY;
+        }
+
+        ze_provider->resident_device_count = ze_params->resident_device_count;
+
+        for (uint32_t i = 0; i < ze_provider->resident_device_count; i++) {
+            ze_provider->resident_device_handles[i] =
+                ze_params->resident_device_handles[i];
+        }
+    } else {
+        ze_provider->resident_device_handles = NULL;
+        ze_provider->resident_device_count = 0;
+    }
+
+    umf_result_t result =
+        query_min_page_size(ze_provider, &ze_provider->min_page_size);
+    if (result != UMF_RESULT_SUCCESS) {
+        ze_memory_provider_finalize(provider);
+        return result;
+    }
+
+    *provider = ze_provider;
+
+    return UMF_RESULT_SUCCESS;
 }
 
 static void ze_memory_provider_get_last_native_error(void *provider,
@@ -496,11 +632,23 @@ static void ze_memory_provider_get_last_native_error(void *provider,
 static umf_result_t ze_memory_provider_get_min_page_size(void *provider,
                                                          void *ptr,
                                                          size_t *pageSize) {
-    (void)provider;
-    (void)ptr;
+    ze_memory_provider_t *ze_provider = (ze_memory_provider_t *)provider;
 
-    // TODO
-    *pageSize = 1024 * 64;
+    if (!ptr) {
+        *pageSize = ze_provider->min_page_size;
+        return UMF_RESULT_SUCCESS;
+    }
+
+    ze_memory_allocation_properties_t properties = {
+        .stype = ZE_STRUCTURE_TYPE_MEMORY_ALLOCATION_PROPERTIES};
+    ze_result_t ze_result = g_ze_ops.zeMemGetAllocProperties(
+        ze_provider->context, ptr, &properties, NULL);
+    if (ze_result != ZE_RESULT_SUCCESS) {
+        return ze2umf_result(ze_result);
+    }
+
+    *pageSize = properties.pageSize;
+
     return UMF_RESULT_SUCCESS;
 }
 
@@ -527,12 +675,8 @@ static umf_result_t ze_memory_provider_purge_force(void *provider, void *ptr,
 static umf_result_t
 ze_memory_provider_get_recommended_page_size(void *provider, size_t size,
                                              size_t *pageSize) {
-    (void)provider;
     (void)size;
-
-    // TODO
-    *pageSize = 1024 * 64;
-    return UMF_RESULT_SUCCESS;
+    return ze_memory_provider_get_min_page_size(provider, NULL, pageSize);
 }
 
 static const char *ze_memory_provider_get_name(void *provider) {

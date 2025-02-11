@@ -1,3 +1,5 @@
+import os
+
 # Configuration file for the Sphinx documentation builder.
 #
 # This file only contains a selection of the most common options. For a full
@@ -18,19 +20,26 @@
 # -- Project information -----------------------------------------------------
 
 project = "Intel Unified Memory Framework"
-copyright = "2023-2024, Intel"
+copyright = "2023-2025, Intel"
 author = "Intel"
 
 # The full version, including alpha/beta/rc tags
-release = "0.11.0"
-
+release = os.getenv("UMF_VERSION", "")
+print(
+    f"UMF_VERSION used in docs: {release}"
+    if release != ""
+    else "please set UMF_VERSION environment variable before running this script"
+)
 
 # -- General configuration ---------------------------------------------------
 
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
-extensions = ["breathe"]
+extensions = ["breathe", "sphinxcontrib.spelling"]
+
+spelling_show_suggestions = True
+spelling_word_list_filename = "spelling_exceptions.txt"
 
 # List of patterns, relative to source directory, that match files and
 # directories to ignore when looking for source files.
@@ -49,7 +58,9 @@ html_theme = "sphinx_book_theme"
 # -- Extension configuration -------------------------------------------------
 
 # -- Options for breathe extension -------------------------------------------
-breathe_projects = {project: "../../docs/xml"}
+# 'doxyxml' dir is generated with Doxygen; it's supposed to be in a directory
+# one above the config directory.
+breathe_projects = {project: "../doxyxml"}
 breathe_default_project = project
 breathe_show_include = False
 breathe_default_members = ("members", "undoc-members")

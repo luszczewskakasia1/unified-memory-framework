@@ -165,6 +165,7 @@ TEST_F(test, test_if_mapped_with_MAP_SYNC) {
     ASSERT_EQ(umf_result, UMF_RESULT_SUCCESS);
 
     umfMemoryProviderDestroy(hProvider);
+    umfDevDaxMemoryProviderParamsDestroy(params);
 
     // fail test if the "sf" flag was not found
     ASSERT_EQ(flag_found, true);
@@ -233,6 +234,13 @@ TEST_P(umfProviderTest, purge_force) {
     test_alloc_free_success(provider.get(), page_size, 0, PURGE_FORCE);
 }
 
+TEST_P(umfProviderTest, purge_force_unalligned_alloc) {
+    void *ptr;
+    auto ret = umfMemoryProviderAlloc(provider.get(), page_plus_64, 0, &ptr);
+    ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
+    test_alloc_free_success(provider.get(), page_size, 0, PURGE_FORCE);
+    umfMemoryProviderFree(provider.get(), ptr, page_plus_64);
+}
 // negative tests using test_alloc_failure
 
 TEST_P(umfProviderTest, alloc_page64_align_page_minus_1_WRONG_ALIGNMENT_1) {
