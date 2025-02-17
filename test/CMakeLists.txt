@@ -136,6 +136,29 @@ function(add_umf_test)
 
     set(TEST_NAME umf-${ARG_NAME})
     set(TEST_TARGET_NAME umf_test-${ARG_NAME})
+    set(GENERATE_STAMP_DIR ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/)
+    set(TEST_GENERATE_STAMP ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${TEST_TARGET_NAME}.dir)
+    file(MAKE_DIRECTORY ${TEST_GENERATE_STAMP})
+
+    file(GLOB STAMP_FILES "${GENERATE_STAMP_DIR}/*.stamp")
+    set(DIRECTORY_TO_CHECK ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles)
+
+    set(DIR_IS_EMPTY FALSE)
+
+    while(NOT DIR_IS_EMPTY)
+        file(GLOB STAMP_FILES "${GENERATE_STAMP_DIR}/*.stamp")
+
+        # Check if the list is empty
+        if(FILES_IN_DIRECTORY)
+            message(STATUS "The directory ${GENERATE_STAMP_DIR} is not empty.")
+            # Optionally, add a delay here to prevent high CPU usage
+            execute_process(COMMAND ${CMAKE_COMMAND} -E sleep 1)
+            file(COPY ${GENERATE_STAMP_DIR}
+                DESTINATION ${TEST_GENERATE_STAMP})
+        endif()
+    endwhile()
+    
+
 
     add_test(
         NAME ${TEST_NAME}
