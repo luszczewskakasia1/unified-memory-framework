@@ -121,7 +121,7 @@ jobs:
 
     - name: Install apt packages
       run: |
-        sudo apt-get update
+        sudo apt-get update # this is the WA for error CUSTOMBUILD : CMake error : Cannot restore timestamp
         sudo apt-get install -y clang cmake libnuma-dev lcov
 
     - name: Install TBB apt package
@@ -168,7 +168,7 @@ jobs:
         -DUMF_BUILD_LIBUMF_POOL_DISJOINT=ON
         -DUMF_TESTS_FAIL_ON_SKIP=ON
         -DUMF_DISABLE_HWLOC=${{matrix.disable_hwloc}}
-        -DUMF_LINK_HWLOC_STATICALLY=${{matrix.link_hwloc_statically}}
+        -DUMF_LINK_HWLOC_STATICALLY=${{matrix.link_hwloc_statically}} # this is the WA for error CUSTOMBUILD : CMake error : Cannot restore timestamp
         ${{ matrix.build_type == 'Debug' && matrix.compiler.c == 'gcc' && '-DUMF_USE_COVERAGE=ON' || '' }}
 
     - name: Build UMF
