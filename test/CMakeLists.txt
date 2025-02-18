@@ -142,29 +142,6 @@ function(add_umf_test)
         COMMAND ${TEST_TARGET_NAME}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
-    set(GENERATE_STAMP_DIR ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/)
-    set(TEST_GENERATE_STAMP ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/${TEST_TARGET_NAME}.dir)
-    file(MAKE_DIRECTORY ${TEST_GENERATE_STAMP})
-
-    file(GLOB STAMP_FILES "${GENERATE_STAMP_DIR}/*.stamp")
-    set(DIRECTORY_TO_CHECK ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles)
-
-    set(DIR_IS_EMPTY FALSE)
-
-    while(NOT DIR_IS_EMPTY)
-        file(GLOB STAMP_FILES "${GENERATE_STAMP_DIR}/*.stamp")
-
-        # Check if the list is empty
-        if(GENERATE_STAMP_DIR)
-            message(STATUS "The directory ${GENERATE_STAMP_DIR} is not empty.")
-            file(COPY ${GENERATE_STAMP_DIR}
-                DESTINATION ${TEST_GENERATE_STAMP})
-        else()
-            set(DIR_IS_EMPTY TRUE)
-            message(STATUS "The directory ${DIRECTORY_TO_CHECK} is now empty.")
-        endif()
-    endwhile()
-
     set_tests_properties(${TEST_NAME} PROPERTIES LABELS "umf")
 
     if(WINDOWS)
@@ -172,6 +149,63 @@ function(add_umf_test)
         set_property(TEST ${TEST_NAME} PROPERTY ENVIRONMENT_MODIFICATION
                                                 "${DLL_PATH_LIST}")
     endif()
+endfunction()
+
+function(add_generate_stamp)
+    set(UMF_TEST_FILES)
+
+    file(GLOB TEST_FILES "${CMAKE_CURRENT_BINARY_DIR}/umf_test*.vcxproj")
+    message(${CMAKE_CURRENT_BINARY_DIR})
+
+    foreach(FILE ${TEST_FILES})
+        list(APPEND UMF_TEST_FILES ${FILE})
+    endforeach()
+
+    message(STATUS "List of UMF test files:")
+    foreach(FILE ${UMF_TEST_FILES})
+        message(STATUS "  ${FILE}")
+    endforeach()
+
+    set(GENERATED_STAMP_DIR ${CMAKE_CURRENT_BINARY_DIR}/test/CMakeFiles/)
+
+    file(GLOB IS_STAMP_IN_DIR "${GENERATED_STAMP_DIR}/*")
+
+    message(STATUS "Contents of ${GENERATED_STAMP_DIR}:")
+    foreach(FILE ${IS_STAMP_IN_DIR})
+        message(STATUS "  ${FILE}")
+    endforeach()
+
+    set(DIR_IS_EMPTY FALSE)
+
+    while(NOT DIR_IS_EMPTY)
+        foreach(FILE ${UMF_TEST_FILES}) 
+            get_filename_component(TEST_TARGET_NAME ${FILE} NAME)
+            set(TEST_GENERATE_STAMP ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/test/${TEST_TARGET_NAME}.dir)
+            file(MAKE_DIRECTORY ${TEST_GENERATE_STAMP})
+        endforeach()
+
+        file(GLOB STAMP_FILES "${GENERATED_STAMP_DIR}/generate.stamp")
+
+        # doesn't work because CMakeFiles is empty
+        # foreach(i RANGE 0 40)
+        #    set(TEST_GENERATE_STAMP ${CMAKE_CURRENT_BINARY_DIR}/CMakeFiles/test/${i}.dir)
+        #    file(MAKE_DIRECTORY ${TEST_GENERATE_STAMP})
+        #    configure_file("${GENERATED_STAMP_DIR}/generate.stamp" ${TEST_GENERATE_STAMP} COPYONLY)
+        # endforeach()
+
+        
+        list(LENGTH STAMP_FILES NUM_FILES)
+        message(STATUS "Number of .stamp files: ${NUM_FILES}")
+        if(NUM_FILES GREATER 0)
+            message(STATUS "Generate.stamp file found.")
+            foreach(STAMP_FILE ${STAMP_FILES})
+                file(COPY ${STAMP_FILE} DESTINATION ${TEST_GENERATE_STAMP})
+            endforeach()
+        else()
+            message(STATUS "The directory ${GENERATED_STAMP_DIR} is empty.")
+            set(DIR_IS_EMPTY TRUE)
+        endif()
+    endwhile()
 endfunction()
 
 add_subdirectory(common)
@@ -761,3 +795,4 @@ if(LINUX
     endif()
 endif()
 
+add_generate_stamp()
