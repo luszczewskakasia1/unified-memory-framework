@@ -6,7 +6,7 @@
 
 LIBRARY UMF
 
-VERSION 0.11
+VERSION 0.12
 
 EXPORTS
     DllMain
@@ -60,7 +60,6 @@ EXPORTS
     umfMemoryProviderPurgeForce
     umfMemoryProviderPurgeLazy
     umfMemoryProviderPutIPCHandle
-    umfMemoryTrackerGetAllocInfo
     umfMempolicyCreate
     umfMempolicyDestroy
     umfMempolicySetCustomSplitPartitions
@@ -118,8 +117,28 @@ EXPORTS
     umfScalablePoolParamsSetGranularity
     umfScalablePoolParamsSetKeepAllMemory
 ; Added in UMF_0.11
+    umfCUDAMemoryProviderParamsSetAllocFlags
+    umfDisjointPoolOps
+    umfDisjointPoolParamsCreate
+    umfDisjointPoolParamsDestroy
+    umfDisjointPoolParamsSetCapacity
+    umfDisjointPoolParamsSetMaxPoolableSize
+    umfDisjointPoolParamsSetMinBucketSize
+    umfDisjointPoolParamsSetName
+    umfDisjointPoolParamsSetSharedLimits
+    umfDisjointPoolParamsSetSlabMinSize
+    umfDisjointPoolParamsSetTrace
+    umfDisjointPoolSharedLimitsCreate
+    umfDisjointPoolSharedLimitsDestroy
     umfFixedMemoryProviderOps
     umfFixedMemoryProviderParamsCreate
     umfFixedMemoryProviderParamsDestroy
     umfLevelZeroMemoryProviderParamsSetFreePolicy
     umfLevelZeroMemoryProviderParamsSetDeviceOrdinal
+; Added in UMF_0.12
+    umfCtlExec
+    umfCtlGet
+    umfCtlSet
+    umfJemallocPoolParamsCreate
+    umfJemallocPoolParamsDestroy
+    umfJemallocPoolParamsSetNumArenas

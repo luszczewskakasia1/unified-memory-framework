@@ -22,7 +22,7 @@ struct libcu_ops {
     CUresult (*cuDeviceGet)(CUdevice *device, int ordinal);
     CUresult (*cuMemAlloc)(CUdeviceptr *dptr, size_t size);
     CUresult (*cuMemFree)(CUdeviceptr dptr);
-    CUresult (*cuMemAllocHost)(void **pp, size_t size);
+    CUresult (*cuMemHostAlloc)(void **pp, size_t size, unsigned int flags);
     CUresult (*cuMemAllocManaged)(CUdeviceptr *dptr, size_t bytesize,
                                   unsigned int flags);
     CUresult (*cuMemFreeHost)(void *p);
@@ -34,6 +34,7 @@ struct libcu_ops {
     CUresult (*cuPointerGetAttributes)(unsigned int numAttributes,
                                        CUpointer_attribute *attributes,
                                        void **data, CUdeviceptr ptr);
+    CUresult (*cuMemHostGetFlags)(unsigned int *pFlags, void *p);
     CUresult (*cuStreamSynchronize)(CUstream hStream);
     CUresult (*cuCtxSynchronize)(void);
 } libcu_ops;
@@ -69,7 +70,7 @@ struct DlHandleCloser {
             libcu_ops.cuMemFree = [](auto... args) {
                 return noop_stub(args...);
             };
-            libcu_ops.cuMemAllocHost = [](auto... args) {
+            libcu_ops.cuMemHostAlloc = [](auto... args) {
                 return noop_stub(args...);
             };
             libcu_ops.cuMemAllocManaged = [](auto... args) {
@@ -88,6 +89,9 @@ struct DlHandleCloser {
                 return noop_stub(args...);
             };
             libcu_ops.cuPointerGetAttributes = [](auto... args) {
+                return noop_stub(args...);
+            };
+            libcu_ops.cuMemHostGetFlags = [](auto... args) {
                 return noop_stub(args...);
             };
             libcu_ops.cuStreamSynchronize = [](auto... args) {
@@ -109,10 +113,15 @@ int InitCUDAOps() {
     const char *lib_name = "libcuda.so";
 #endif
     // CUDA symbols
-    // NOTE that we use UMF_UTIL_OPEN_LIBRARY_GLOBAL which add all loaded
-    // symbols to the global symbol table.
+#if OPEN_CU_LIBRARY_GLOBAL
+    // NOTE UMF_UTIL_OPEN_LIBRARY_GLOBAL adds all loaded symbols to the
+    // global symbol table.
+    int open_flags = UMF_UTIL_OPEN_LIBRARY_GLOBAL;
+#else
+    int open_flags = 0;
+#endif
     cuDlHandle = std::unique_ptr<void, DlHandleCloser>(
-        utils_open_library(lib_name, UMF_UTIL_OPEN_LIBRARY_GLOBAL));
+        utils_open_library(lib_name, open_flags));
 
     // NOTE: some symbols defined in the lib have _vX postfixes - this is
     // important to load the proper version of functions
@@ -164,10 +173,10 @@ int InitCUDAOps() {
         fprintf(stderr, "cuMemFree_v2 symbol not found in %s\n", lib_name);
         return -1;
     }
-    *(void **)&libcu_ops.cuMemAllocHost =
-        utils_get_symbol_addr(cuDlHandle.get(), "cuMemAllocHost_v2", lib_name);
-    if (libcu_ops.cuMemAllocHost == nullptr) {
-        fprintf(stderr, "cuMemAllocHost_v2 symbol not found in %s\n", lib_name);
+    *(void **)&libcu_ops.cuMemHostAlloc =
+        utils_get_symbol_addr(cuDlHandle.get(), "cuMemHostAlloc", lib_name);
+    if (libcu_ops.cuMemHostAlloc == nullptr) {
+        fprintf(stderr, "cuMemHostAlloc symbol not found in %s\n", lib_name);
         return -1;
     }
     *(void **)&libcu_ops.cuMemAllocManaged =
@@ -208,6 +217,12 @@ int InitCUDAOps() {
                 lib_name);
         return -1;
     }
+    *(void **)&libcu_ops.cuMemHostGetFlags =
+        utils_get_symbol_addr(cuDlHandle.get(), "cuMemHostGetFlags", lib_name);
+    if (libcu_ops.cuMemHostGetFlags == nullptr) {
+        fprintf(stderr, "cuMemHostGetFlags symbol not found in %s\n", lib_name);
+        return -1;
+    }
     *(void **)&libcu_ops.cuStreamSynchronize = utils_get_symbol_addr(
         cuDlHandle.get(), "cuStreamSynchronize", lib_name);
     if (libcu_ops.cuStreamSynchronize == nullptr) {
@@ -236,7 +251,7 @@ int InitCUDAOps() {
     libcu_ops.cuCtxSetCurrent = cuCtxSetCurrent;
     libcu_ops.cuDeviceGet = cuDeviceGet;
     libcu_ops.cuMemAlloc = cuMemAlloc;
-    libcu_ops.cuMemAllocHost = cuMemAllocHost;
+    libcu_ops.cuMemHostAlloc = cuMemHostAlloc;
     libcu_ops.cuMemAllocManaged = cuMemAllocManaged;
     libcu_ops.cuMemFree = cuMemFree;
     libcu_ops.cuMemFreeHost = cuMemFreeHost;
@@ -244,6 +259,7 @@ int InitCUDAOps() {
     libcu_ops.cuMemcpy = cuMemcpy;
     libcu_ops.cuPointerGetAttribute = cuPointerGetAttribute;
     libcu_ops.cuPointerGetAttributes = cuPointerGetAttributes;
+    libcu_ops.cuMemHostGetFlags = cuMemHostGetFlags;
     libcu_ops.cuStreamSynchronize = cuStreamSynchronize;
     libcu_ops.cuCtxSynchronize = cuCtxSynchronize;
 
@@ -373,6 +389,17 @@ umf_usm_memory_type_t get_mem_type(CUcontext context, void *ptr) {
     return UMF_MEMORY_TYPE_UNKNOWN;
 }
 
+unsigned int get_mem_host_alloc_flags(void *ptr) {
+    unsigned int flags;
+    CUresult res = libcu_ops.cuMemHostGetFlags(&flags, ptr);
+    if (res != CUDA_SUCCESS) {
+        fprintf(stderr, "cuPointerGetAttribute() failed!\n");
+        return 0;
+    }
+
+    return flags;
+}
+
 CUcontext get_mem_context(void *ptr) {
     CUcontext context;
     CUresult res = libcu_ops.cuPointerGetAttribute(
@@ -383,6 +410,18 @@ CUcontext get_mem_context(void *ptr) {
     }
 
     return context;
+}
+
+int get_mem_device(void *ptr) {
+    int device;
+    CUresult res = libcu_ops.cuPointerGetAttribute(
+        &device, CU_POINTER_ATTRIBUTE_DEVICE_ORDINAL, (CUdeviceptr)ptr);
+    if (res != CUDA_SUCCESS) {
+        fprintf(stderr, "cuPointerGetAttribute() failed!\n");
+        return -1;
+    }
+
+    return device;
 }
 
 CUcontext get_current_context() {
@@ -406,7 +445,7 @@ void init_cuda_once() {
     InitResult = init_cuda_lib();
 }
 
-int init_cuda() {
+int init_cuda(void) {
     utils_init_once(&cuda_init_flag, init_cuda_once);
 
     return InitResult;
@@ -414,12 +453,6 @@ int init_cuda() {
 
 int get_cuda_device(CUdevice *device) {
     CUdevice cuDevice = -1;
-
-    int ret = init_cuda();
-    if (ret != 0) {
-        fprintf(stderr, "init_cuda() failed!\n");
-        return ret;
-    }
 
     CUresult res = libcu_ops.cuDeviceGet(&cuDevice, 0);
     if (res != CUDA_SUCCESS || cuDevice < 0) {
@@ -432,12 +465,6 @@ int get_cuda_device(CUdevice *device) {
 
 int create_context(CUdevice device, CUcontext *context) {
     CUcontext cuContext = nullptr;
-
-    int ret = init_cuda();
-    if (ret != 0) {
-        fprintf(stderr, "init_cuda() failed!\n");
-        return ret;
-    }
 
     CUresult res = libcu_ops.cuCtxCreate(&cuContext, 0, device);
     if (res != CUDA_SUCCESS || cuContext == nullptr) {

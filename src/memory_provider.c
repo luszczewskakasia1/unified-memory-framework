@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2023-2024 Intel Corporation
+ * Copyright (C) 2023-2025 Intel Corporation
  *
  * Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -18,12 +18,22 @@
 #include "base_alloc_global.h"
 #include "libumf.h"
 #include "memory_provider_internal.h"
+#include "umf/base.h"
 #include "utils_assert.h"
 
-typedef struct umf_memory_provider_t {
-    umf_memory_provider_ops_t ops;
-    void *provider_priv;
-} umf_memory_provider_t;
+static int CTL_SUBTREE_HANDLER(by_handle_provider)(
+    void *ctx, umf_ctl_query_source_t source, void *arg,
+    umf_ctl_index_utlist_t *indexes, const char *extra_name,
+    umf_ctl_query_type_t queryType) {
+    (void)indexes, (void)source;
+    umf_memory_provider_handle_t hProvider = (umf_memory_provider_handle_t)ctx;
+    hProvider->ops.ctl(hProvider->provider_priv, /*unused*/ 0, extra_name, arg,
+                       queryType);
+    return 0;
+}
+
+umf_ctl_node_t CTL_NODE(provider)[] = {
+    CTL_LEAF_SUBTREE2(by_handle, by_handle_provider), CTL_NODE_END};
 
 static umf_result_t umfDefaultPurgeLazy(void *provider, void *ptr,
                                         size_t size) {
@@ -98,6 +108,17 @@ static umf_result_t umfDefaultCloseIPCHandle(void *provider, void *ptr,
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
+static umf_result_t umfDefaultCtlHandle(void *provider, int operationType,
+                                        const char *name, void *arg,
+                                        umf_ctl_query_type_t queryType) {
+    (void)provider;
+    (void)operationType;
+    (void)name;
+    (void)arg;
+    (void)queryType;
+    return UMF_RESULT_ERROR_NOT_SUPPORTED;
+}
+
 void assignOpsExtDefaults(umf_memory_provider_ops_t *ops) {
     if (!ops->ext.purge_lazy) {
         ops->ext.purge_lazy = umfDefaultPurgeLazy;
@@ -128,6 +149,9 @@ void assignOpsIpcDefaults(umf_memory_provider_ops_t *ops) {
     }
     if (!ops->ipc.close_ipc_handle) {
         ops->ipc.close_ipc_handle = umfDefaultCloseIPCHandle;
+    }
+    if (!ops->ctl) {
+        ops->ctl = umfDefaultCtlHandle;
     }
 }
 
@@ -167,13 +191,17 @@ umf_result_t umfMemoryProviderCreate(const umf_memory_provider_ops_t *ops,
         return UMF_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
+    if (ops->version != UMF_PROVIDER_OPS_VERSION_CURRENT) {
+        LOG_WARN("Memory Provider ops version \"%d\" is different than the "
+                 "current version \"%d\"",
+                 ops->version, UMF_PROVIDER_OPS_VERSION_CURRENT);
+    }
+
     umf_memory_provider_handle_t provider =
         umf_ba_global_alloc(sizeof(umf_memory_provider_t));
     if (!provider) {
         return UMF_RESULT_ERROR_OUT_OF_HOST_MEMORY;
     }
-
-    assert(ops->version == UMF_VERSION_CURRENT);
 
     provider->ops = *ops;
 

@@ -38,6 +38,8 @@ typedef enum umf_purge_advise_t {
         expression;                                                            \
     } while (0)
 
+#define IS_POWER_OF_2(value) ((value) != 0 && ((value) & ((value)-1)) == 0)
+
 #define IS_ALIGNED(value, align)                                               \
     ((align == 0 || (((value) & ((align)-1)) == 0)))
 #define IS_NOT_ALIGNED(value, align)                                           \
@@ -50,9 +52,6 @@ typedef enum umf_purge_advise_t {
 #define ALIGN_DOWN(value, align) ((value) & ~((align)-1))
 #define ASSERT_IS_ALIGNED(value, align)                                        \
     DO_WHILE_EXPRS(assert(IS_ALIGNED(value, align)))
-
-#define VALGRIND_ANNOTATE_NEW_MEMORY(p, s) DO_WHILE_EMPTY
-#define VALGRIND_HG_DRD_DISABLE_CHECKING(p, s) DO_WHILE_EMPTY
 
 #ifdef _WIN32 /* Windows */
 
@@ -116,6 +115,9 @@ int utils_getpid(void);
 // get the current thread ID
 int utils_gettid(void);
 
+// get the number of CPU cores
+unsigned utils_get_num_cores(void);
+
 // close file descriptor
 int utils_close_fd(int fd);
 
@@ -175,6 +177,10 @@ int utils_file_open_or_create(const char *path);
 int utils_fallocate(int fd, long offset, long len);
 
 long utils_get_size_threshold(char *str_threshold);
+
+size_t utils_max(size_t a, size_t b);
+
+size_t utils_min(size_t a, size_t b);
 
 #ifdef __cplusplus
 }

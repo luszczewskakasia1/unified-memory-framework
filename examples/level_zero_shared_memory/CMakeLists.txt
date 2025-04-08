@@ -1,4 +1,4 @@
-# Copyright (C) 2024 Intel Corporation
+# Copyright (C) 2024-2025 Intel Corporation
 # Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
 # SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
 
@@ -24,7 +24,7 @@ endif()
 include(FetchContent)
 
 set(LEVEL_ZERO_LOADER_REPO "https://github.com/oneapi-src/level-zero.git")
-set(LEVEL_ZERO_LOADER_TAG v1.19.2)
+set(LEVEL_ZERO_LOADER_TAG v1.20.2)
 
 message(
     STATUS
@@ -53,8 +53,8 @@ target_include_directories(${EXAMPLE_NAME} PRIVATE ${LIBUMF_INCLUDE_DIRS}
 target_link_directories(${EXAMPLE_NAME} PRIVATE ${LIBUMF_LIBRARY_DIRS}
                         ${LIBHWLOC_LIBRARY_DIRS})
 target_link_options(${EXAMPLE_NAME} PRIVATE "-Wl,--start-group")
-target_link_libraries(${EXAMPLE_NAME} PRIVATE stdc++ libdisjoint_pool.a
-                                              ze_loader ${LIBUMF_LIBRARIES})
+target_link_libraries(${EXAMPLE_NAME} PRIVATE stdc++ ze_loader
+                                              ${LIBUMF_LIBRARIES})
 
 # an optional part - adds a test of this example
 add_test(
@@ -70,6 +70,6 @@ if(LINUX)
         TEST ${EXAMPLE_NAME}
         PROPERTY
             ENVIRONMENT_MODIFICATION
-            "LD_LIBRARY_PATH=path_list_append:${LIBUMF_LIBRARY_DIRS};LD_LIBRARY_PATH=path_list_append:${LIBHWLOC_LIBRARY_DIRS}"
+            "LD_LIBRARY_PATH=path_list_prepend:${LIBUMF_LIBRARY_DIRS};LD_LIBRARY_PATH=path_list_append:${LIBHWLOC_LIBRARY_DIRS}"
     )
 endif()

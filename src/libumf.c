@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2025 Intel Corporation
  *
  * Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -11,7 +11,11 @@
 
 #include "base_alloc_global.h"
 #include "ipc_cache.h"
+#include "memory_provider_internal.h"
 #include "memspace_internal.h"
+#include "pool/pool_scalable_internal.h"
+#include "provider_cuda_internal.h"
+#include "provider_level_zero_internal.h"
 #include "provider_tracking.h"
 #include "utils_common.h"
 #include "utils_log.h"
@@ -21,10 +25,15 @@
 
 umf_memory_tracker_handle_t TRACKER = NULL;
 
-static unsigned long long umfRefCount = 0;
+static uint64_t umfRefCount = 0;
+
+static umf_ctl_node_t CTL_NODE(umf)[] = {CTL_CHILD(provider), CTL_CHILD(pool),
+                                         CTL_NODE_END};
+
+void initialize_global_ctl(void) { CTL_REGISTER_MODULE(NULL, umf); }
 
 int umfInit(void) {
-    if (utils_fetch_and_add64(&umfRefCount, 1) == 0) {
+    if (utils_fetch_and_add_u64(&umfRefCount, 1) == 0) {
         utils_log_init();
         TRACKER = umfMemoryTrackerCreate();
         if (!TRACKER) {
@@ -41,6 +50,7 @@ int umfInit(void) {
         }
 
         LOG_DEBUG("UMF IPC cache initialized");
+        initialize_global_ctl();
     }
 
     if (TRACKER) {
@@ -51,7 +61,7 @@ int umfInit(void) {
 }
 
 void umfTearDown(void) {
-    if (utils_fetch_and_add64(&umfRefCount, -1) == 1) {
+    if (utils_fetch_and_sub_u64(&umfRefCount, 1) == 1) {
 #if !defined(_WIN32) && !defined(UMF_NO_HWLOC)
         umfMemspaceHostAllDestroy();
         umfMemspaceHighestCapacityDestroy();
@@ -79,6 +89,9 @@ void umfTearDown(void) {
         LOG_DEBUG("UMF base allocator destroyed");
 
     fini_umfTearDown:
+        fini_ze_global_state();
+        fini_cu_global_state();
+        fini_tbb_global_state();
         LOG_DEBUG("UMF library finalized");
     }
 }

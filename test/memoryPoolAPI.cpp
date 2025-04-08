@@ -12,6 +12,7 @@
 #include "test_helpers.h"
 
 #include <umf/memory_provider.h>
+#include <umf/pools/pool_disjoint.h>
 #include <umf/pools/pool_proxy.h>
 
 #ifdef UMF_PROXY_LIB_ENABLED
@@ -124,7 +125,7 @@ TEST_P(umfPoolWithCreateFlagsTest, memoryPoolWithCustomProvider) {
             return UMF_RESULT_SUCCESS;
         }
     };
-    umf_memory_pool_ops_t pool_ops = umf::poolMakeCOps<pool, void>();
+    umf_memory_pool_ops_t pool_ops = umf_test::poolMakeCOps<pool, void>();
 
     umf_memory_pool_handle_t hPool;
     auto ret = umfPoolCreate(&pool_ops, hProvider, nullptr, flags, &hPool);
@@ -186,8 +187,8 @@ struct tagTest : umf_test::test {
             createPoolChecked(umfProxyPoolOps(), provider.get(), nullptr));
     }
 
-    umf::provider_unique_handle_t provider;
-    umf::pool_unique_handle_t pool;
+    umf_test::provider_unique_handle_t provider;
+    umf_test::pool_unique_handle_t pool;
 };
 
 TEST_F(tagTest, SetAndGet) {
@@ -295,12 +296,14 @@ TEST_F(tagTest, SetAndGetInvalidPool) {
 
 INSTANTIATE_TEST_SUITE_P(
     mallocPoolTest, umfPoolTest,
-    ::testing::Values(poolCreateExtParams{&MALLOC_POOL_OPS, nullptr, nullptr,
-                                          &UMF_NULL_PROVIDER_OPS, nullptr,
-                                          nullptr},
-                      poolCreateExtParams{umfProxyPoolOps(), nullptr, nullptr,
-                                          &BA_GLOBAL_PROVIDER_OPS, nullptr,
-                                          nullptr}));
+    ::testing::Values(
+        poolCreateExtParams{&MALLOC_POOL_OPS, nullptr, nullptr,
+                            &UMF_NULL_PROVIDER_OPS, nullptr, nullptr},
+        poolCreateExtParams{umfProxyPoolOps(), nullptr, nullptr,
+                            &BA_GLOBAL_PROVIDER_OPS, nullptr, nullptr},
+        poolCreateExtParams{umfDisjointPoolOps(), defaultDisjointPoolConfig,
+                            defaultDisjointPoolConfigDestroy,
+                            &BA_GLOBAL_PROVIDER_OPS, nullptr, nullptr}));
 
 INSTANTIATE_TEST_SUITE_P(mallocMultiPoolTest, umfMultiPoolTest,
                          ::testing::Values(poolCreateExtParams{
@@ -367,7 +370,8 @@ TEST_P(poolInitializeTest, errorPropagation) {
             return *errorToReturn;
         }
     };
-    umf_memory_pool_ops_t pool_ops = umf::poolMakeCOps<pool, umf_result_t>();
+    umf_memory_pool_ops_t pool_ops =
+        umf_test::poolMakeCOps<pool, umf_result_t>();
 
     umf_memory_pool_handle_t hPool;
     auto ret = umfPoolCreate(&pool_ops, hProvider, (void *)&this->GetParam(), 0,
@@ -417,7 +421,7 @@ TEST_F(test, getLastFailedMemoryProvider) {
         const char *name;
     };
     umf_memory_provider_ops_t provider_ops =
-        umf::providerMakeCOps<memory_provider, char>();
+        umf_test::providerMakeCOps<memory_provider, char>();
 
     auto providerUnique1 = wrapProviderUnique(
         createProviderChecked(&provider_ops, (void *)"provider1"));

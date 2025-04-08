@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2023-2024 Intel Corporation
+ * Copyright (C) 2023-2025 Intel Corporation
  *
  * Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -26,12 +26,7 @@
 extern "C" {
 #endif
 
-struct umf_memory_tracker_t {
-    umf_ba_pool_t *tracker_allocator;
-    critnib *map;
-    utils_mutex_t splitMergeMutex;
-};
-
+struct umf_memory_tracker_t;
 typedef struct umf_memory_tracker_t *umf_memory_tracker_handle_t;
 
 extern umf_memory_tracker_handle_t TRACKER;
@@ -49,6 +44,15 @@ typedef struct umf_alloc_info_t {
 
 umf_result_t umfMemoryTrackerGetAllocInfo(const void *ptr,
                                           umf_alloc_info_t *pAllocInfo);
+
+typedef struct umf_ipc_info_t {
+    void *base;
+    size_t baseSize;
+    umf_memory_provider_handle_t provider;
+} umf_ipc_info_t;
+
+umf_result_t umfMemoryTrackerGetIpcInfo(const void *ptr,
+                                        umf_ipc_info_t *pIpcInfo);
 
 // Creates a memory provider that tracks each allocation/deallocation through umf_memory_tracker_handle_t and
 // forwards all requests to hUpstream memory Provider. hUpstream lifetime should be managed by the user of this function.

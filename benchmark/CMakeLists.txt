@@ -40,8 +40,9 @@ function(add_umf_benchmark)
     # * SRCS - source files
     # * LIBS - libraries to be linked with
     # * LIBDIRS - directories of libraries to be linked with
+    # * TESTARGS - additional arguments to be passed to the add_test
     set(oneValueArgs NAME)
-    set(multiValueArgs SRCS LIBS LIBDIRS)
+    set(multiValueArgs SRCS LIBS LIBDIRS TESTARGS)
     cmake_parse_arguments(
         ARG
         ""
@@ -66,7 +67,7 @@ function(add_umf_benchmark)
 
     add_test(
         NAME ${BENCH_NAME}
-        COMMAND ${BENCH_NAME}
+        COMMAND ${BENCH_NAME} ${ARG_TESTARGS}
         WORKING_DIRECTORY ${CMAKE_CURRENT_BINARY_DIR})
 
     if("${BENCH_NAME}" STREQUAL "umf-ubench")
@@ -86,11 +87,17 @@ function(add_umf_benchmark)
         set_property(TEST ${BENCH_NAME} PROPERTY ENVIRONMENT_MODIFICATION
                                                  "${DLL_PATH_LIST}")
     endif()
-
-    if(UMF_BUILD_LIBUMF_POOL_DISJOINT)
-        target_compile_definitions(${BENCH_NAME}
-                                   PRIVATE UMF_POOL_DISJOINT_ENABLED=1)
+    if(LINUX)
+        # prepend LD_LIBRARY_PATH with ${CMAKE_BINARY_DIR}/lib it is required
+        # because ${CMAKE_BINARY_DIR}/lib contains libze_loader.so and tests
+        # should use it instead of system one.
+        set_property(
+            TEST ${BENCH_NAME}
+            PROPERTY ENVIRONMENT_MODIFICATION
+                     "LD_LIBRARY_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/lib"
+        )
     endif()
+
     if(UMF_POOL_JEMALLOC_ENABLED)
         target_compile_definitions(${BENCH_NAME}
                                    PRIVATE UMF_POOL_JEMALLOC_ENABLED=1)
@@ -121,9 +128,6 @@ endfunction()
 set(LIB_DIRS ${LIBHWLOC_LIBRARY_DIRS})
 
 # optional libraries
-if(UMF_BUILD_LIBUMF_POOL_DISJOINT)
-    set(LIBS_OPTIONAL ${LIBS_OPTIONAL} disjoint_pool)
-endif()
 if(LINUX)
     set(LIBS_OPTIONAL ${LIBS_OPTIONAL} m)
 endif()
@@ -145,7 +149,9 @@ add_umf_benchmark(
     NAME benchmark
     SRCS benchmark.cpp
     LIBS ${LIBS_OPTIONAL} benchmark::benchmark
-    LIBDIRS ${LIB_DIRS})
+    # limit running benchmarks in CI tests to single-threaded
+    LIBDIRS ${LIB_DIRS}
+    TESTARGS --benchmark_filter=threads:1$)
 
 if(UMF_BUILD_BENCHMARKS_MT)
     add_umf_benchmark(

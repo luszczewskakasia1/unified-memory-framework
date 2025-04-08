@@ -4,15 +4,13 @@
 
 #include "base.hpp"
 
-#include "cpp_helpers.hpp"
 #include "ipcFixtures.hpp"
 #include "test_helpers.h"
+#include "utils/cpp_helpers.hpp"
 
 #include <umf/memory_provider.h>
-#include <umf/providers/provider_os_memory.h>
-#ifdef UMF_POOL_DISJOINT_ENABLED
 #include <umf/pools/pool_disjoint.h>
-#endif
+#include <umf/providers/provider_os_memory.h>
 #ifdef UMF_POOL_JEMALLOC_ENABLED
 #include <umf/pools/pool_jemalloc.h>
 #endif
@@ -49,7 +47,7 @@ static int compare_native_error_str(const char *message, int error) {
 using providerCreateExtParams = std::tuple<umf_memory_provider_ops_t *, void *>;
 
 static void providerCreateExt(providerCreateExtParams params,
-                              umf::provider_unique_handle_t *handle) {
+                              umf_test::provider_unique_handle_t *handle) {
     umf_memory_provider_handle_t hProvider = nullptr;
     auto [provider_ops, provider_params] = params;
 
@@ -58,8 +56,8 @@ static void providerCreateExt(providerCreateExtParams params,
     ASSERT_EQ(ret, UMF_RESULT_SUCCESS);
     ASSERT_NE(hProvider, nullptr);
 
-    *handle =
-        umf::provider_unique_handle_t(hProvider, &umfMemoryProviderDestroy);
+    *handle = umf_test::provider_unique_handle_t(hProvider,
+                                                 &umfMemoryProviderDestroy);
 }
 
 struct umfProviderTest
@@ -77,7 +75,7 @@ struct umfProviderTest
 
     void TearDown() override { test::TearDown(); }
 
-    umf::provider_unique_handle_t provider;
+    umf_test::provider_unique_handle_t provider;
     size_t page_size;
     size_t page_plus_64;
 };
@@ -428,8 +426,6 @@ umf_result_t destroyOsMemoryProviderParamsShared(void *params) {
 
 HostMemoryAccessor hostAccessor;
 
-#ifdef UMF_POOL_DISJOINT_ENABLED
-
 void *createDisjointPoolParams() {
     umf_disjoint_pool_params_handle_t params = nullptr;
     umf_result_t res = umfDisjointPoolParamsCreate(&params);
@@ -465,18 +461,40 @@ umf_result_t destroyDisjointPoolParams(void *params) {
         static_cast<umf_disjoint_pool_params_handle_t>(params));
 }
 
+#ifdef UMF_POOL_JEMALLOC_ENABLED
+void *createJemallocParams() {
+    umf_jemalloc_pool_params_handle_t jemalloc_params = NULL;
+    umf_result_t res = umfJemallocPoolParamsCreate(&jemalloc_params);
+    if (res != UMF_RESULT_SUCCESS) {
+        throw std::runtime_error("Failed to create Jemalloc Pool params");
+    }
+
+    // This test creates multiple pools, so we need to reduce the number of arenas
+    // to avoid hitting the maximum arena limit on systems with many cores.
+    res = umfJemallocPoolParamsSetNumArenas(jemalloc_params, 1);
+    if (res != UMF_RESULT_SUCCESS) {
+        umfJemallocPoolParamsDestroy(jemalloc_params);
+        throw std::runtime_error("Failed to set number of arenas for Jemalloc "
+                                 "Pool params");
+    }
+    return jemalloc_params;
+}
+
+umf_result_t destroyJemallocParams(void *params) {
+    return umfJemallocPoolParamsDestroy(
+        (umf_jemalloc_pool_params_handle_t)params);
+}
+
 #endif
 
 static std::vector<ipcTestParams> ipcTestParamsList = {
-#ifdef UMF_POOL_DISJOINT_ENABLED
     {umfDisjointPoolOps(), createDisjointPoolParams, destroyDisjointPoolParams,
      umfOsMemoryProviderOps(), createOsMemoryProviderParamsShared,
      destroyOsMemoryProviderParamsShared, &hostAccessor},
-#endif
 #ifdef UMF_POOL_JEMALLOC_ENABLED
-    {umfJemallocPoolOps(), nullptr, nullptr, umfOsMemoryProviderOps(),
-     createOsMemoryProviderParamsShared, destroyOsMemoryProviderParamsShared,
-     &hostAccessor},
+    {umfJemallocPoolOps(), createJemallocParams, destroyJemallocParams,
+     umfOsMemoryProviderOps(), createOsMemoryProviderParamsShared,
+     destroyOsMemoryProviderParamsShared, &hostAccessor},
 #endif
 };
 

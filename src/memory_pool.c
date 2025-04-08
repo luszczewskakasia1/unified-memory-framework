@@ -1,6 +1,6 @@
 /*
  *
- * Copyright (C) 2023-2024 Intel Corporation
+ * Copyright (C) 2023-2025 Intel Corporation
  *
  * Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -22,6 +22,32 @@
 #include "memory_provider_internal.h"
 #include "provider_tracking.h"
 
+static int CTL_SUBTREE_HANDLER(by_handle_pool)(void *ctx,
+                                               umf_ctl_query_source_t source,
+                                               void *arg,
+                                               umf_ctl_index_utlist_t *indexes,
+                                               const char *extra_name,
+                                               umf_ctl_query_type_t queryType) {
+    (void)indexes, (void)source;
+    umf_memory_pool_handle_t hPool = (umf_memory_pool_handle_t)ctx;
+    hPool->ops.ctl(hPool, /*unused*/ 0, extra_name, arg, queryType);
+    return 0;
+}
+
+umf_ctl_node_t CTL_NODE(pool)[] = {CTL_LEAF_SUBTREE2(by_handle, by_handle_pool),
+                                   CTL_NODE_END};
+
+static umf_result_t umfDefaultCtlPoolHandle(void *hPool, int operationType,
+                                            const char *name, void *arg,
+                                            umf_ctl_query_type_t queryType) {
+    (void)hPool;
+    (void)operationType;
+    (void)name;
+    (void)arg;
+    (void)queryType;
+    return UMF_RESULT_ERROR_NOT_SUPPORTED;
+}
+
 static umf_result_t umfPoolCreateInternal(const umf_memory_pool_ops_t *ops,
                                           umf_memory_provider_handle_t provider,
                                           void *params,
@@ -38,7 +64,11 @@ static umf_result_t umfPoolCreateInternal(const umf_memory_pool_ops_t *ops,
         return UMF_RESULT_ERROR_OUT_OF_HOST_MEMORY;
     }
 
-    assert(ops->version == UMF_VERSION_CURRENT);
+    if (ops->version != UMF_POOL_OPS_VERSION_CURRENT) {
+        LOG_WARN("Memory Pool ops version \"%d\" is different than the current "
+                 "version \"%d\"",
+                 ops->version, UMF_POOL_OPS_VERSION_CURRENT);
+    }
 
     if (!(flags & UMF_POOL_CREATE_FLAG_DISABLE_TRACKING)) {
         // Wrap provider with memory tracking provider.
@@ -53,6 +83,10 @@ static umf_result_t umfPoolCreateInternal(const umf_memory_pool_ops_t *ops,
     pool->flags = flags;
     pool->ops = *ops;
     pool->tag = NULL;
+
+    if (NULL == pool->ops.ctl) {
+        pool->ops.ctl = umfDefaultCtlPoolHandle;
+    }
 
     if (NULL == utils_mutex_init(&pool->lock)) {
         LOG_ERR("Failed to initialize mutex for pool");
@@ -107,6 +141,8 @@ void umfPoolDestroy(umf_memory_pool_handle_t hPool) {
 umf_result_t umfFree(void *ptr) {
     umf_memory_pool_handle_t hPool = umfPoolByPtr(ptr);
     if (hPool) {
+        LOG_DEBUG("calling umfPoolFree(pool=%p, ptr=%p) ...", (void *)hPool,
+                  ptr);
         return umfPoolFree(hPool, ptr);
     }
     return UMF_RESULT_SUCCESS;

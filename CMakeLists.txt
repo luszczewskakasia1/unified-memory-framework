@@ -41,6 +41,7 @@ endif()
 include(CTest)
 include(CMakePackageConfigHelpers)
 include(GNUInstallDirs)
+include(FetchContent)
 find_package(PkgConfig)
 
 # --------------------------------------------------------------------------- #
@@ -60,8 +61,6 @@ endmacro()
 umf_option(UMF_BUILD_SHARED_LIBRARY "Build UMF as shared library" OFF)
 umf_option(UMF_BUILD_LEVEL_ZERO_PROVIDER "Build Level Zero memory provider" ON)
 umf_option(UMF_BUILD_CUDA_PROVIDER "Build CUDA memory provider" ON)
-umf_option(UMF_BUILD_LIBUMF_POOL_DISJOINT
-           "Build the libumf_pool_disjoint static library" OFF)
 umf_option(UMF_BUILD_LIBUMF_POOL_JEMALLOC
            "Build the libumf_pool_jemalloc static library" OFF)
 umf_option(UMF_BUILD_TESTS "Build UMF tests" ON)
@@ -90,6 +89,8 @@ set(UMF_INSTALL_RPATH
         "Set the runtime search path to the directory with dependencies (e.g. hwloc)"
 )
 
+umf_option(UMF_USE_DEBUG_POSTFIX "Add a 'd' postfix to Windows debug libraries"
+           OFF)
 umf_option(UMF_DEVELOPER_MODE "Enable additional developer checks" OFF)
 umf_option(
     UMF_FORMAT_CODE_STYLE
@@ -117,6 +118,7 @@ list(APPEND UMF_OPTIONS_LIST UMF_PROXY_LIB_BASED_ON_POOL)
 # Setup required variables, definitions; fetch dependencies; include
 # sub_directories based on build options; set flags; etc.
 # --------------------------------------------------------------------------- #
+message(STATUS "CMAKE_GENERATOR: ${CMAKE_GENERATOR}")
 
 if(UMF_BUILD_TESTS
    AND DEFINED ENV{CI}
@@ -164,7 +166,6 @@ else()
         set(UMF_JEMALLOC_TAG 5.3.0)
     endif()
 
-    include(FetchContent)
     message(
         STATUS
             "Will fetch jemalloc from ${UMF_JEMALLOC_REPO} (tag: ${UMF_JEMALLOC_TAG})"
@@ -188,11 +189,12 @@ else()
         # --disable-initial-exec-tls - Disable the initial-exec TLS model for
         # jemalloc's internal thread-local storage (on those platforms that
         # support explicit settings). This can allow jemalloc to be dynamically
-        # loaded after program startup (e.g. using dlopen).
+        # loaded after program startup (e.g. using dlopen). --disable-doc -
+        # Disable building and installing the documentation.
         COMMAND
             ./configure --prefix=${jemalloc_targ_BINARY_DIR}
             --with-jemalloc-prefix=je_ --disable-cxx --disable-initial-exec-tls
-            CFLAGS=-fPIC
+            --disable-doc CFLAGS=-fPIC
         WORKING_DIRECTORY ${jemalloc_targ_SOURCE_DIR}
         OUTPUT ${jemalloc_targ_SOURCE_DIR}/Makefile
         DEPENDS ${jemalloc_targ_SOURCE_DIR}/configure)
@@ -243,140 +245,117 @@ else()
     )
 endif()
 
+if(NOT UMF_DISABLE_HWLOC AND (NOT UMF_LINK_HWLOC_STATICALLY))
+    pkg_check_modules(LIBHWLOC hwloc>=2.3.0)
+    if(NOT LIBHWLOC_FOUND)
+        find_package(LIBHWLOC 2.3.0 COMPONENTS hwloc)
+        if(LIBHWLOC_LIBRARIES)
+            set(LIBHWLOC_AVAILABLE TRUE)
+        endif()
+    endif()
+
+    if(LIBHWLOC_AVAILABLE OR LIBHWLOC_FOUND)
+        # add PATH to DLL on Windows
+        set(DLL_PATH_LIST
+            "${DLL_PATH_LIST};PATH=path_list_append:${LIBHWLOC_DLL_DIRS}")
+    else()
+        set(UMF_LINK_HWLOC_STATICALLY ON)
+    endif()
+endif()
+
+if(UMF_LINK_HWLOC_STATICALLY AND LINUX)
+    find_program(AUTORECONF_EXECUTABLE autoreconf)
+    if(NOT AUTORECONF_EXECUTABLE)
+        message(WARNING "autoreconf is not installed. Disabling hwloc.")
+        set(UMF_DISABLE_HWLOC ON)
+        set(UMF_LINK_HWLOC_STATICALLY OFF)
+    endif()
+endif()
+
 if(UMF_DISABLE_HWLOC)
     message(STATUS "hwloc is disabled, hence OS provider, memtargets, "
                    "topology discovery, examples won't be available!")
 else()
-    if(NOT DEFINED UMF_HWLOC_REPO)
-        set(UMF_HWLOC_REPO "https://github.com/open-mpi/hwloc.git")
-    endif()
-
-    if(NOT DEFINED UMF_HWLOC_TAG)
-        set(UMF_HWLOC_TAG hwloc-2.10.0)
-    endif()
-
-    if(NOT UMF_LINK_HWLOC_STATICALLY)
-        pkg_check_modules(LIBHWLOC hwloc>=2.3.0)
-        if(NOT LIBHWLOC_FOUND)
-            find_package(LIBHWLOC 2.3.0 REQUIRED hwloc)
+    if(UMF_LINK_HWLOC_STATICALLY)
+        if(NOT DEFINED UMF_HWLOC_REPO)
+            set(UMF_HWLOC_REPO "https://github.com/open-mpi/hwloc.git")
         endif()
 
-        # add PATH to DLL on Windows
-        set(DLL_PATH_LIST
-            "${DLL_PATH_LIST};PATH=path_list_append:${LIBHWLOC_DLL_DIRS}")
-    elseif(WINDOWS)
-        include(FetchContent)
-        set(HWLOC_ENABLE_TESTING OFF)
-        set(HWLOC_SKIP_LSTOPO ON)
-        set(HWLOC_SKIP_TOOLS ON)
-
+        if(NOT DEFINED UMF_HWLOC_TAG)
+            set(UMF_HWLOC_TAG hwloc-2.10.0)
+        endif()
         message(
             STATUS
                 "Will fetch hwloc from ${UMF_HWLOC_REPO} (tag: ${UMF_HWLOC_TAG})"
         )
 
-        FetchContent_Declare(
-            hwloc_targ
-            GIT_REPOSITORY ${UMF_HWLOC_REPO}
-            GIT_TAG ${UMF_HWLOC_TAG}
-            SOURCE_SUBDIR contrib/windows-cmake/ FIND_PACKAGE_ARGS)
-        FetchContent_MakeAvailable(hwloc_targ)
+        if(WINDOWS)
+            set(HWLOC_ENABLE_TESTING OFF)
+            set(HWLOC_SKIP_LSTOPO ON)
+            set(HWLOC_SKIP_TOOLS ON)
 
-        message(STATUS "hwloc CMAKE_GENERATOR: ${CMAKE_GENERATOR}")
+            FetchContent_Declare(
+                hwloc_targ
+                GIT_REPOSITORY ${UMF_HWLOC_REPO}
+                GIT_TAG ${UMF_HWLOC_TAG}
+                SOURCE_SUBDIR contrib/windows-cmake/)
+            FetchContent_MakeAvailable(hwloc_targ)
 
-        if(CMAKE_GENERATOR STREQUAL "Ninja")
+            set(HWLOC_LIB_PATH "")
+            if(CMAKE_GENERATOR STREQUAL "NMake Makefiles")
+                set(HWLOC_LIB_PATH "${hwloc_targ_BINARY_DIR}/hwloc.lib")
+            else()
+                set(HWLOC_LIB_PATH "${hwloc_targ_BINARY_DIR}/lib/hwloc.lib")
+            endif()
+
+            get_filename_component(LIBHWLOC_LIBRARY_DIRS ${HWLOC_LIB_PATH}
+                                   DIRECTORY)
+            set(LIBHWLOC_LIBRARIES ${HWLOC_LIB_PATH})
+            set(LIBHWLOC_INCLUDE_DIRS ${hwloc_targ_BINARY_DIR}/include)
+        else() # not Windows
+            FetchContent_Declare(
+                hwloc_targ
+                GIT_REPOSITORY ${UMF_HWLOC_REPO}
+                GIT_TAG ${UMF_HWLOC_TAG})
+            FetchContent_MakeAvailable(hwloc_targ)
+
             add_custom_command(
-                COMMAND ${CMAKE_COMMAND}
-                        -DCMAKE_INSTALL_PREFIX=${hwloc_targ_BINARY_DIR} -B build
-                WORKING_DIRECTORY
-                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/
-                OUTPUT
-                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/CMakeCache.txt
-            )
+                COMMAND ./autogen.sh
+                WORKING_DIRECTORY ${hwloc_targ_SOURCE_DIR}
+                OUTPUT ${hwloc_targ_SOURCE_DIR}/configure)
             add_custom_command(
-                COMMAND ${CMAKE_COMMAND} --build build
-                WORKING_DIRECTORY
-                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/
-                OUTPUT
-                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/build/lib/hwloc.lib
-                DEPENDS
-                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/CMakeCache.txt
-            )
+                COMMAND
+                    ./configure --prefix=${hwloc_targ_BINARY_DIR}
+                    --enable-static=yes --enable-shared=no --disable-libxml2
+                    --disable-pci --disable-levelzero --disable-opencl
+                    --disable-cuda --disable-nvml --disable-libudev
+                    --disable-rsmi CFLAGS=-fPIC CXXFLAGS=-fPIC
+                WORKING_DIRECTORY ${hwloc_targ_SOURCE_DIR}
+                OUTPUT ${hwloc_targ_SOURCE_DIR}/Makefile
+                DEPENDS ${hwloc_targ_SOURCE_DIR}/configure)
             add_custom_command(
-                COMMAND ${CMAKE_COMMAND} --build build --target INSTALL
-                WORKING_DIRECTORY
-                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/
-                OUTPUT ${hwloc_targ_BINARY_DIR}/lib/hwloc.lib
-                DEPENDS
-                    ${hwloc_targ_SOURCE_DIR}/contrib/windows-cmake/build/lib/hwloc.lib
-            )
+                COMMAND make
+                WORKING_DIRECTORY ${hwloc_targ_SOURCE_DIR}
+                OUTPUT ${hwloc_targ_SOURCE_DIR}/lib/libhwloc.la
+                DEPENDS ${hwloc_targ_SOURCE_DIR}/Makefile)
+            add_custom_command(
+                COMMAND make install
+                WORKING_DIRECTORY ${hwloc_targ_SOURCE_DIR}
+                OUTPUT ${hwloc_targ_BINARY_DIR}/lib/libhwloc.a
+                DEPENDS ${hwloc_targ_SOURCE_DIR}/lib/libhwloc.la)
+
             add_custom_target(hwloc_prod
-                              DEPENDS ${hwloc_targ_BINARY_DIR}/lib/hwloc.lib)
+                              DEPENDS ${hwloc_targ_BINARY_DIR}/lib/libhwloc.a)
+            add_library(hwloc INTERFACE)
             target_link_libraries(
-                hwloc INTERFACE ${hwloc_targ_BINARY_DIR}/lib/hwloc.lib)
+                hwloc INTERFACE ${hwloc_targ_BINARY_DIR}/lib/libhwloc.a)
             add_dependencies(hwloc hwloc_prod)
 
             set(LIBHWLOC_LIBRARY_DIRS ${hwloc_targ_BINARY_DIR}/lib)
-            set(LIBHWLOC_LIBRARIES ${hwloc_targ_BINARY_DIR}/lib/hwloc.lib)
-        elseif(CMAKE_GENERATOR STREQUAL "NMake Makefiles")
-            set(LIBHWLOC_LIBRARY_DIRS ${hwloc_targ_BINARY_DIR}/)
-            set(LIBHWLOC_LIBRARIES ${hwloc_targ_BINARY_DIR}/hwloc.lib)
-        else()
-            set(LIBHWLOC_LIBRARY_DIRS ${hwloc_targ_BINARY_DIR}/$<CONFIG>)
-            set(LIBHWLOC_LIBRARIES ${hwloc_targ_BINARY_DIR}/$<CONFIG>/hwloc.lib)
+            set(LIBHWLOC_INCLUDE_DIRS ${hwloc_targ_BINARY_DIR}/include)
+            set(LIBHWLOC_LIBRARIES ${hwloc_targ_BINARY_DIR}/lib/libhwloc.a)
         endif()
-
-        set(LIBHWLOC_INCLUDE_DIRS
-            ${hwloc_targ_SOURCE_DIR}/include;${hwloc_targ_BINARY_DIR}/include)
-    else()
-        include(FetchContent)
-        message(
-            STATUS
-                "Will fetch hwloc from ${UMF_HWLOC_REPO} (tag: ${UMF_HWLOC_TAG})"
-        )
-
-        FetchContent_Declare(
-            hwloc_targ
-            GIT_REPOSITORY ${UMF_HWLOC_REPO}
-            GIT_TAG ${UMF_HWLOC_TAG})
-        FetchContent_MakeAvailable(hwloc_targ)
-
-        add_custom_command(
-            COMMAND ./autogen.sh
-            WORKING_DIRECTORY ${hwloc_targ_SOURCE_DIR}
-            OUTPUT ${hwloc_targ_SOURCE_DIR}/configure)
-        add_custom_command(
-            COMMAND
-                ./configure --prefix=${hwloc_targ_BINARY_DIR}
-                --enable-static=yes --enable-shared=no --disable-libxml2
-                --disable-pci --disable-levelzero --disable-opencl
-                --disable-cuda --disable-nvml --disable-libudev --disable-rsmi
-                CFLAGS=-fPIC CXXFLAGS=-fPIC
-            WORKING_DIRECTORY ${hwloc_targ_SOURCE_DIR}
-            OUTPUT ${hwloc_targ_SOURCE_DIR}/Makefile
-            DEPENDS ${hwloc_targ_SOURCE_DIR}/configure)
-        add_custom_command(
-            COMMAND make
-            WORKING_DIRECTORY ${hwloc_targ_SOURCE_DIR}
-            OUTPUT ${hwloc_targ_SOURCE_DIR}/lib/libhwloc.la
-            DEPENDS ${hwloc_targ_SOURCE_DIR}/Makefile)
-        add_custom_command(
-            COMMAND make install
-            WORKING_DIRECTORY ${hwloc_targ_SOURCE_DIR}
-            OUTPUT ${hwloc_targ_BINARY_DIR}/lib/libhwloc.a
-            DEPENDS ${hwloc_targ_SOURCE_DIR}/lib/libhwloc.la)
-
-        add_custom_target(hwloc_prod
-                          DEPENDS ${hwloc_targ_BINARY_DIR}/lib/libhwloc.a)
-        add_library(hwloc INTERFACE)
-        target_link_libraries(hwloc
-                              INTERFACE ${hwloc_targ_BINARY_DIR}/lib/libhwloc.a)
-        add_dependencies(hwloc hwloc_prod)
-
-        set(LIBHWLOC_LIBRARY_DIRS ${hwloc_targ_BINARY_DIR}/lib)
-        set(LIBHWLOC_INCLUDE_DIRS ${hwloc_targ_BINARY_DIR}/include)
-        set(LIBHWLOC_LIBRARIES ${hwloc_targ_BINARY_DIR}/lib/libhwloc.a)
-    endif()
+    endif() # UMF_LINK_HWLOC_STATICALLY
 
     message(STATUS "    LIBHWLOC_LIBRARIES = ${LIBHWLOC_LIBRARIES}")
     message(STATUS "    LIBHWLOC_INCLUDE_DIRS = ${LIBHWLOC_INCLUDE_DIRS}")
@@ -388,7 +367,7 @@ else()
 endif()
 
 if(hwloc_targ_SOURCE_DIR)
-    # apply security patch for HWLOC
+    # Apply security patch for HWLOC
     execute_process(
         COMMAND git apply ${PROJECT_SOURCE_DIR}/cmake/fix_coverity_issues.patch
         WORKING_DIRECTORY ${hwloc_targ_SOURCE_DIR}
@@ -406,10 +385,8 @@ endif()
 # Fetch L0 loader only if needed i.e.: if building L0 provider is ON and L0
 # headers are not provided by the user (via setting UMF_LEVEL_ZERO_INCLUDE_DIR).
 if(UMF_BUILD_LEVEL_ZERO_PROVIDER AND (NOT UMF_LEVEL_ZERO_INCLUDE_DIR))
-    include(FetchContent)
-
     set(LEVEL_ZERO_LOADER_REPO "https://github.com/oneapi-src/level-zero.git")
-    set(LEVEL_ZERO_LOADER_TAG v1.19.2)
+    set(LEVEL_ZERO_LOADER_TAG v1.20.2)
 
     message(
         STATUS
@@ -436,8 +413,6 @@ endif()
 # Fetch CUDA only if needed i.e.: if building CUDA provider is ON and CUDA
 # headers are not provided by the user (via setting UMF_CUDA_INCLUDE_DIR).
 if(UMF_BUILD_CUDA_PROVIDER AND (NOT UMF_CUDA_INCLUDE_DIR))
-    include(FetchContent)
-
     set(CUDA_REPO
         "https://gitlab.com/nvidia/headers/cuda-individual/cudart.git")
     set(CUDA_TAG cuda-12.5.1)
@@ -459,6 +434,27 @@ elseif(UMF_BUILD_CUDA_PROVIDER)
     # Only header is needed to build UMF
     set(CUDA_INCLUDE_DIRS ${UMF_CUDA_INCLUDE_DIR})
     message(STATUS "CUDA_INCLUDE_DIRS = ${CUDA_INCLUDE_DIRS}")
+endif()
+
+if(WINDOWS AND UMF_USE_DEBUG_POSTFIX)
+    # Build debug umf library with the d suffix that is compiled with /MDd so
+    # users can link against it in debug builds.
+    set(CMAKE_DEBUG_POSTFIX d)
+
+    add_custom_target(
+        umfd ALL
+        COMMAND ${CMAKE_COMMAND} --build ${CMAKE_BINARY_DIR} --target umf
+                --config Debug
+        COMMENT "Building debug umf library with the d suffix")
+
+    # Copy built UMF libraries to the Release build subdirectory
+    add_custom_command(
+        TARGET umfd
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/bin/Debug/umfd.dll
+                ${CMAKE_BINARY_DIR}/bin/Release/umfd.dll
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/lib/Debug/umfd.lib
+                ${CMAKE_BINARY_DIR}/lib/Release/umfd.lib
+        COMMENT "Copying debug libraries to the Release build directory")
 endif()
 
 # This build type check is not possible on Windows when CMAKE_BUILD_TYPE is not
@@ -497,8 +493,8 @@ endif()
 # For using the options listed in the OPTIONS_REQUIRING_CXX variable a C++17
 # compiler is required. Moreover, if these options are not set, CMake will set
 # up a strict C build, without C++ support.
-set(OPTIONS_REQUIRING_CXX "UMF_BUILD_TESTS" "UMF_BUILD_LIBUMF_POOL_DISJOINT"
-                          "UMF_BUILD_BENCHMARKS_MT" "UMF_BUILD_BENCHMARKS")
+set(OPTIONS_REQUIRING_CXX "UMF_BUILD_TESTS" "UMF_BUILD_BENCHMARKS_MT"
+                          "UMF_BUILD_BENCHMARKS")
 foreach(option_name ${OPTIONS_REQUIRING_CXX})
     if(${option_name})
         enable_language(CXX)
@@ -853,6 +849,14 @@ endif()
 # --------------------------------------------------------------------------- #
 # Configure make install/uninstall and packages
 # --------------------------------------------------------------------------- #
+# Install umfd target
+if(WINDOWS AND UMF_USE_DEBUG_POSTFIX)
+    install(FILES ${CMAKE_BINARY_DIR}/bin/Debug/umfd.dll
+            DESTINATION ${CMAKE_INSTALL_BINDIR})
+    install(FILES ${CMAKE_BINARY_DIR}/lib/Debug/umfd.lib
+            DESTINATION ${CMAKE_INSTALL_LIBDIR})
+endif()
+
 install(FILES ${PROJECT_SOURCE_DIR}/LICENSE.TXT
         DESTINATION "${CMAKE_INSTALL_DATAROOTDIR}/doc/${PROJECT_NAME}/")
 install(

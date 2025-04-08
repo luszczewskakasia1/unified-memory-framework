@@ -7,7 +7,7 @@
 
 function check_L0_version {
     if command -v dpkg &> /dev/null; then
-        dpkg -l | grep level-zero && return
+        dpkg -l | grep -iE "level-zero|libze|Compute Runtime|Level Zero" && return
     fi
 
     if command -v rpm &> /dev/null; then
@@ -15,7 +15,7 @@ function check_L0_version {
     fi
 
     if command -v zypper &> /dev/null; then
-        zypper se level-zero && return
+        zypper -n se level-zero || true
     fi
 
     echo "level-zero not installed"
@@ -34,7 +34,7 @@ function system_info {
 	numactl -H
 
 	echo "**********VGA info**********"
-	lspci | grep -i VGA
+	lspci | grep -iE "vga|display|gpu"
 
 	echo "**********CUDA Version**********"
 	if command -v nvidia-smi &> /dev/null; then

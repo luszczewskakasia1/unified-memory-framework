@@ -5,11 +5,6 @@
 #ifndef UMF_TEST_POOL_FIXTURES_HPP
 #define UMF_TEST_POOL_FIXTURES_HPP 1
 
-#include "pool.hpp"
-#include "provider.hpp"
-#include "umf/providers/provider_devdax_memory.h"
-#include "utils/utils_sanitizers.h"
-
 #include <array>
 #include <cstring>
 #include <functional>
@@ -17,7 +12,14 @@
 #include <string>
 #include <thread>
 
+#include <umf/pools/pool_proxy.h>
+#include <umf/providers/provider_devdax_memory.h>
+#include <umf/providers/provider_fixed_memory.h>
+
 #include "../malloc_compliance_tests.hpp"
+#include "pool.hpp"
+#include "provider.hpp"
+#include "utils/utils_sanitizers.h"
 
 typedef void *(*pfnPoolParamsCreate)();
 typedef umf_result_t (*pfnPoolParamsDestroy)(void *);
@@ -30,7 +32,7 @@ using poolCreateExtParams =
                pfnPoolParamsDestroy, umf_memory_provider_ops_t *,
                pfnProviderParamsCreate, pfnProviderParamsDestroy>;
 
-umf::pool_unique_handle_t poolCreateExtUnique(poolCreateExtParams params) {
+umf_test::pool_unique_handle_t poolCreateExtUnique(poolCreateExtParams params) {
     auto [pool_ops, poolParamsCreate, poolParamsDestroy, provider_ops,
           providerParamsCreate, providerParamsDestroy] = params;
 
@@ -71,7 +73,7 @@ umf::pool_unique_handle_t poolCreateExtUnique(poolCreateExtParams params) {
         providerParamsDestroy(provider_params);
     }
 
-    return umf::pool_unique_handle_t(hPool, &umfPoolDestroy);
+    return umf_test::pool_unique_handle_t(hPool, &umfPoolDestroy);
 }
 
 struct umfPoolTest : umf_test::test,
@@ -84,7 +86,7 @@ struct umfPoolTest : umf_test::test,
 
     void TearDown() override { test::TearDown(); }
 
-    umf::pool_unique_handle_t pool;
+    umf_test::pool_unique_handle_t pool;
 
     static constexpr int NTHREADS = 5;
     static constexpr std::array<int, 7> nonAlignedAllocSizes = {5,  7,   23, 55,
@@ -104,7 +106,7 @@ struct umfMultiPoolTest : umf_test::test,
 
     void TearDown() override { test::TearDown(); }
 
-    std::vector<umf::pool_unique_handle_t> pools;
+    std::vector<umf_test::pool_unique_handle_t> pools;
 };
 
 struct umfMemTest
@@ -121,7 +123,7 @@ struct umfMemTest
 
     void TearDown() override { test::TearDown(); }
 
-    umf::pool_unique_handle_t pool;
+    umf_test::pool_unique_handle_t pool;
     int expectedRecycledPoolAllocs;
 };
 
@@ -452,26 +454,182 @@ TEST_P(umfPoolTest, allocMaxSize) {
 }
 
 TEST_P(umfPoolTest, mallocUsableSize) {
-#ifdef __SANITIZE_ADDRESS__
-    // Sanitizer replaces malloc_usable_size implementation with its own
-    GTEST_SKIP()
-        << "This test is invalid with AddressSanitizer instrumentation";
-#else
-
-    for (size_t allocSize : {32, 48, 1024, 8192}) {
-        char *ptr = static_cast<char *>(umfPoolMalloc(pool.get(), allocSize));
-        ASSERT_NE(ptr, nullptr);
-        size_t result = umfPoolMallocUsableSize(pool.get(), ptr);
-        ASSERT_TRUE(result == 0 || result >= allocSize);
-
-        // Make sure we can write to this memory
-        for (size_t i = 0; i < result; i++) {
-            ptr[i] = 123;
-        }
-
-        umfPoolFree(pool.get(), ptr);
+    [[maybe_unused]] auto pool_ops = std::get<0>(this->GetParam());
+#ifdef _WIN32
+    if (pool_ops == &umf_test::MALLOC_POOL_OPS) {
+        GTEST_SKIP()
+            << "Windows Malloc Pool does not support umfPoolAlignedMalloc";
     }
 #endif
+    if (!umf_test::isAlignedAllocSupported(pool.get())) {
+        GTEST_SKIP();
+    }
+#ifdef __SANITIZE_ADDRESS__
+    if (pool_ops == &umf_test::MALLOC_POOL_OPS) {
+        // Sanitizer replaces malloc_usable_size implementation with its own
+        GTEST_SKIP()
+            << "This test is invalid with AddressSanitizer instrumentation";
+    }
+#endif
+    for (size_t allocSize :
+         {32, 64, 1 << 6, 1 << 10, 1 << 13, 1 << 16, 1 << 19}) {
+        for (size_t alignment : {0, 1 << 6, 1 << 8, 1 << 12}) {
+            if (alignment >= allocSize) {
+                continue;
+            }
+            void *ptr = nullptr;
+            if (alignment == 0) {
+                ptr = umfPoolMalloc(pool.get(), allocSize);
+            } else {
+                ptr = umfPoolAlignedMalloc(pool.get(), allocSize, alignment);
+            }
+            ASSERT_NE(ptr, nullptr);
+            size_t result = umfPoolMallocUsableSize(pool.get(), ptr);
+            ASSERT_TRUE(result == 0 || result >= allocSize);
+
+            // Make sure we can write to this memory
+            memset(ptr, 123, result);
+
+            umfPoolFree(pool.get(), ptr);
+        }
+    }
+}
+
+TEST_P(umfPoolTest, umfPoolAlignedMalloc) {
+#ifdef _WIN32
+    // TODO: implement support for windows
+    GTEST_SKIP() << "umfPoolAlignedMalloc() is not supported on Windows";
+#else  /* !_WIN32 */
+    umf_result_t umf_result;
+    void *ptr = nullptr;
+    const size_t size = 2 * 1024 * 1024; // 2MB
+
+    umf_memory_pool_handle_t pool_get = pool.get();
+
+    if (!umf_test::isAlignedAllocSupported(pool_get)) {
+        GTEST_SKIP();
+    }
+
+    ptr = umfPoolAlignedMalloc(pool_get, size, utils_get_page_size());
+    ASSERT_NE(ptr, nullptr);
+
+    umf_result = umfPoolFree(pool_get, ptr);
+    ASSERT_EQ(umf_result, UMF_RESULT_SUCCESS);
+#endif /* !_WIN32 */
+}
+
+TEST_P(umfPoolTest, pool_from_ptr_whole_size_success) {
+#ifdef _WIN32
+    // TODO: implement support for windows
+    GTEST_SKIP() << "umfPoolAlignedMalloc() is not supported on Windows";
+#else  /* !_WIN32 */
+    umf_result_t umf_result;
+    size_t size_of_pool_from_ptr;
+    void *ptr_for_pool = nullptr;
+    void *ptr = nullptr;
+
+    umf_memory_pool_handle_t pool_get = pool.get();
+    const size_t size_of_first_alloc = 2 * 1024 * 1024; // 2MB
+
+    if (!umf_test::isAlignedAllocSupported(pool_get)) {
+        GTEST_SKIP();
+    }
+
+    ptr_for_pool = umfPoolAlignedMalloc(pool_get, size_of_first_alloc,
+                                        utils_get_page_size());
+    ASSERT_NE(ptr_for_pool, nullptr);
+
+    // Create provider parameters
+    size_of_pool_from_ptr = size_of_first_alloc; // whole size
+    umf_fixed_memory_provider_params_handle_t params = nullptr;
+    umf_result = umfFixedMemoryProviderParamsCreate(&params, ptr_for_pool,
+                                                    size_of_pool_from_ptr);
+    ASSERT_EQ(umf_result, UMF_RESULT_SUCCESS);
+    ASSERT_NE(params, nullptr);
+
+    umf_memory_provider_handle_t providerFromPtr = nullptr;
+    umf_result = umfMemoryProviderCreate(umfFixedMemoryProviderOps(), params,
+                                         &providerFromPtr);
+    ASSERT_EQ(umf_result, UMF_RESULT_SUCCESS);
+    ASSERT_NE(providerFromPtr, nullptr);
+
+    umf_memory_pool_handle_t poolFromPtr = nullptr;
+    umf_result = umfPoolCreate(umfProxyPoolOps(), providerFromPtr, nullptr, 0,
+                               &poolFromPtr);
+    ASSERT_EQ(umf_result, UMF_RESULT_SUCCESS);
+
+    ptr = umfPoolMalloc(poolFromPtr, size_of_pool_from_ptr);
+    ASSERT_NE(ptr, nullptr);
+
+    memset(ptr, 0xFF, size_of_pool_from_ptr);
+
+    umf_result = umfPoolFree(poolFromPtr, ptr);
+    ASSERT_EQ(umf_result, UMF_RESULT_SUCCESS);
+
+    umfPoolDestroy(poolFromPtr);
+    umfMemoryProviderDestroy(providerFromPtr);
+    umfFixedMemoryProviderParamsDestroy(params);
+
+    umf_result = umfPoolFree(pool_get, ptr_for_pool);
+    ASSERT_EQ(umf_result, UMF_RESULT_SUCCESS);
+#endif /* !_WIN32 */
+}
+
+TEST_P(umfPoolTest, pool_from_ptr_half_size_success) {
+#ifdef _WIN32
+    // TODO: implement support for windows
+    GTEST_SKIP() << "umfPoolAlignedMalloc() is not supported on Windows";
+#else  /* !_WIN32 */
+    umf_result_t umf_result;
+    size_t size_of_pool_from_ptr;
+    void *ptr_for_pool = nullptr;
+    void *ptr = nullptr;
+
+    umf_memory_pool_handle_t pool_get = pool.get();
+    const size_t size_of_first_alloc = 2 * 1024 * 1024; // 2MB
+
+    if (!umf_test::isAlignedAllocSupported(pool_get)) {
+        GTEST_SKIP();
+    }
+
+    ptr_for_pool = umfPoolAlignedMalloc(pool_get, size_of_first_alloc,
+                                        utils_get_page_size());
+    ASSERT_NE(ptr_for_pool, nullptr);
+
+    // Create provider parameters
+    size_of_pool_from_ptr = size_of_first_alloc / 2; // half size
+    umf_fixed_memory_provider_params_handle_t params = nullptr;
+    umf_result = umfFixedMemoryProviderParamsCreate(&params, ptr_for_pool,
+                                                    size_of_pool_from_ptr);
+    ASSERT_EQ(umf_result, UMF_RESULT_SUCCESS);
+    ASSERT_NE(params, nullptr);
+
+    umf_memory_provider_handle_t providerFromPtr = nullptr;
+    umf_result = umfMemoryProviderCreate(umfFixedMemoryProviderOps(), params,
+                                         &providerFromPtr);
+    ASSERT_EQ(umf_result, UMF_RESULT_SUCCESS);
+    ASSERT_NE(providerFromPtr, nullptr);
+
+    umf_memory_pool_handle_t poolFromPtr = nullptr;
+    umf_result = umfPoolCreate(umfProxyPoolOps(), providerFromPtr, nullptr, 0,
+                               &poolFromPtr);
+    ASSERT_EQ(umf_result, UMF_RESULT_SUCCESS);
+
+    ptr = umfPoolMalloc(poolFromPtr, size_of_pool_from_ptr);
+    ASSERT_NE(ptr, nullptr);
+
+    memset(ptr, 0xFF, size_of_pool_from_ptr);
+
+    umf_result = umfPoolFree(poolFromPtr, ptr);
+    ASSERT_EQ(umf_result, UMF_RESULT_SUCCESS);
+
+    umfPoolDestroy(poolFromPtr);
+    umfMemoryProviderDestroy(providerFromPtr);
+    umfFixedMemoryProviderParamsDestroy(params);
+
+    umf_result = umfPoolFree(pool_get, ptr_for_pool);
+    ASSERT_EQ(umf_result, UMF_RESULT_SUCCESS);
+#endif /* !_WIN32 */
 }
 
 #endif /* UMF_TEST_POOL_FIXTURES_HPP */

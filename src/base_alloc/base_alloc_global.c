@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2025 Intel Corporation
  *
  * Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -23,6 +23,7 @@
 
 // global base allocator used by all providers and pools
 static UTIL_ONCE_FLAG ba_is_initialized = UTIL_ONCE_FLAG_INIT;
+static bool ba_is_destroyed = false;
 
 #define ALLOC_METADATA_SIZE (sizeof(size_t))
 
@@ -40,6 +41,8 @@ struct base_alloc_t {
 static struct base_alloc_t BASE_ALLOC = {.ac_sizes = ALLOCATION_CLASSES};
 
 void umf_ba_destroy_global(void) {
+    ba_is_destroyed = true;
+
     for (int i = 0; i < NUM_ALLOCATION_CLASSES; i++) {
         if (BASE_ALLOC.ac[i]) {
             umf_ba_destroy(BASE_ALLOC.ac[i]);
@@ -48,9 +51,11 @@ void umf_ba_destroy_global(void) {
     }
 
     // portable version of "ba_is_initialized = UTIL_ONCE_FLAG_INIT;"
-    static UTIL_ONCE_FLAG is_initialized = UTIL_ONCE_FLAG_INIT;
-    memcpy(&ba_is_initialized, &is_initialized, sizeof(ba_is_initialized));
+    static UTIL_ONCE_FLAG set_once = UTIL_ONCE_FLAG_INIT;
+    memcpy(&ba_is_initialized, &set_once, sizeof(ba_is_initialized));
 }
+
+bool umf_ba_global_is_destroyed(void) { return ba_is_destroyed; }
 
 static void umf_ba_create_global(void) {
     for (int i = 0; i < NUM_ALLOCATION_CLASSES; i++) {
@@ -66,7 +71,7 @@ static void umf_ba_create_global(void) {
     }
 
     size_t smallestSize = BASE_ALLOC.ac_sizes[0];
-    BASE_ALLOC.smallest_ac_size_log2 = log2Utils(smallestSize);
+    BASE_ALLOC.smallest_ac_size_log2 = utils_msb64(smallestSize);
 
     LOG_DEBUG("UMF base allocator created");
 }
@@ -78,8 +83,8 @@ static int size_to_idx(size_t size) {
     }
 
     int isPowerOf2 = (0 == (size & (size - 1)));
-    int index =
-        (int)(log2Utils(size) + !isPowerOf2 - BASE_ALLOC.smallest_ac_size_log2);
+    int index = (int)(utils_msb64(size) + !isPowerOf2 -
+                      BASE_ALLOC.smallest_ac_size_log2);
 
     assert(index >= 0);
     return index;
@@ -199,6 +204,12 @@ void *umf_ba_global_alloc(size_t size) {
 
 void umf_ba_global_free(void *ptr) {
     if (!ptr) {
+        return;
+    }
+
+    if (ba_is_destroyed) {
+        LOG_WARN(
+            "base_alloc: calling free() after the base allocator is destroyed");
         return;
     }
 

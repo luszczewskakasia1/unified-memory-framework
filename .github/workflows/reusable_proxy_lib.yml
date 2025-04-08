@@ -32,7 +32,7 @@ jobs:
       - name: Install apt packages
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake libhwloc-dev libtbb-dev lcov
+          sudo apt-get install -y cmake libhwloc-dev libnuma-dev libtbb-dev lcov
 
       - name: Configure build
         run: >
@@ -48,7 +48,6 @@ jobs:
           -DUMF_FORMAT_CODE_STYLE=OFF
           -DUMF_DEVELOPER_MODE=ON
           -DUMF_BUILD_LIBUMF_POOL_JEMALLOC=ON
-          -DUMF_BUILD_LIBUMF_POOL_DISJOINT=ON
           -DUMF_TESTS_FAIL_ON_SKIP=ON
           -DUMF_PROXY_LIB_BASED_ON_POOL=${{matrix.proxy_lib_pool}}
           ${{ matrix.build_type == 'Debug' && '-DUMF_USE_COVERAGE=ON' || '' }}
@@ -60,9 +59,9 @@ jobs:
         working-directory: ${{env.BUILD_DIR}}
         run: LD_PRELOAD=./lib/libumf_proxy.so ctest --output-on-failure
 
-      - name: Run "./test/umf_test-memoryPool" with proxy library
+      - name: Run "./test/test_memoryPool" with proxy library
         working-directory: ${{env.BUILD_DIR}}
-        run: LD_PRELOAD=./lib/libumf_proxy.so ./test/umf_test-memoryPool
+        run: LD_PRELOAD=./lib/libumf_proxy.so ./test/test_memoryPool
 
       - name: Run "/usr/bin/ls" with proxy library
         working-directory: ${{env.BUILD_DIR}}

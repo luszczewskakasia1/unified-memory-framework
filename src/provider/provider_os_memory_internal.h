@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023-2024 Intel Corporation
+ * Copyright (C) 2023-2025 Intel Corporation
  *
  * Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
@@ -10,7 +10,6 @@
 
 #include <limits.h>
 #include <stdbool.h>
-
 #if defined(_WIN32) && !defined(NAME_MAX)
 #include <stdlib.h>
 #define NAME_MAX _MAX_FNAME
@@ -22,6 +21,8 @@
 #include "umf_hwloc.h"
 #include "utils_common.h"
 #include "utils_concurrency.h"
+
+#include "provider_ctl_stats_type.h"
 
 #ifdef __cplusplus
 extern "C" {
@@ -58,7 +59,7 @@ typedef struct os_memory_provider_t {
     int numa_flags; // combination of hwloc flags
 
     size_t part_size;
-    size_t alloc_sum; // sum of all allocations - used for manual interleaving
+    uint64_t alloc_sum; // sum of all allocations - used for manual interleaving
 
     struct {
         unsigned weight;
@@ -68,6 +69,8 @@ typedef struct os_memory_provider_t {
     size_t partitions_weight_sum;
 
     hwloc_topology_t topo;
+
+    ctl_stats_t stats;
 } os_memory_provider_t;
 
 #ifdef __cplusplus

@@ -144,10 +144,15 @@ int InitLevelZeroOps() {
     const char *lib_name = "libze_loader.so";
 #endif
     // Load Level Zero symbols
-    // NOTE that we use UMF_UTIL_OPEN_LIBRARY_GLOBAL which add all loaded symbols to the
+#if OPEN_ZE_LIBRARY_GLOBAL
+    // NOTE UMF_UTIL_OPEN_LIBRARY_GLOBAL adds all loaded symbols to the
     // global symbol table.
+    int open_flags = UMF_UTIL_OPEN_LIBRARY_GLOBAL;
+#else
+    int open_flags = 0;
+#endif
     zeDlHandle = std::unique_ptr<void, DlHandleCloser>(
-        utils_open_library(lib_name, UMF_UTIL_OPEN_LIBRARY_GLOBAL));
+        utils_open_library(lib_name, open_flags));
     *(void **)&libze_ops.zeInit =
         utils_get_symbol_addr(zeDlHandle.get(), "zeInit", lib_name);
     if (libze_ops.zeInit == nullptr) {
@@ -344,12 +349,6 @@ int utils_ze_get_drivers(uint32_t *drivers_num_,
     ze_driver_handle_t *drivers = NULL;
     uint32_t drivers_num = 0;
 
-    ret = utils_ze_init_level_zero();
-    if (ret != 0) {
-        fprintf(stderr, "utils_ze_init_level_zero() failed!\n");
-        goto init_fail;
-    }
-
     ze_result = libze_ops.zeDriverGet(&drivers_num, NULL);
     if (ze_result != ZE_RESULT_SUCCESS) {
         fprintf(stderr, "zeDriverGet() failed!\n");
@@ -386,7 +385,6 @@ fn_fail:
         *drivers_ = NULL;
     }
 
-init_fail:
     return ret;
 }
 
@@ -396,12 +394,6 @@ int utils_ze_get_devices(ze_driver_handle_t driver, uint32_t *devices_num_,
     int ret = 0;
     uint32_t devices_num = 0;
     ze_device_handle_t *devices = NULL;
-
-    ret = utils_ze_init_level_zero();
-    if (ret != 0) {
-        fprintf(stderr, "utils_ze_init_level_zero() failed!\n");
-        goto init_fail;
-    }
 
     ze_result = libze_ops.zeDeviceGet(driver, &devices_num, NULL);
     if (ze_result != ZE_RESULT_SUCCESS) {
@@ -438,7 +430,7 @@ fn_fail:
         free(devices);
         devices = NULL;
     }
-init_fail:
+
     return ret;
 }
 

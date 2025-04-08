@@ -12,7 +12,18 @@
 #include <umf.h>
 #include <umf/providers/provider_cuda.h>
 
+#include "provider_cuda_internal.h"
+#include "utils_load_library.h"
 #include "utils_log.h"
+
+static void *cu_lib_handle = NULL;
+
+void fini_cu_global_state(void) {
+    if (cu_lib_handle) {
+        utils_close_library(cu_lib_handle);
+        cu_lib_handle = NULL;
+    }
+}
 
 #if defined(UMF_NO_CUDA_PROVIDER)
 
@@ -55,6 +66,14 @@ umf_result_t umfCUDAMemoryProviderParamsSetMemoryType(
     return UMF_RESULT_ERROR_NOT_SUPPORTED;
 }
 
+umf_result_t umfCUDAMemoryProviderParamsSetAllocFlags(
+    umf_cuda_memory_provider_params_handle_t hParams, unsigned int flags) {
+    (void)hParams;
+    (void)flags;
+    LOG_ERR("CUDA provider is disabled (UMF_BUILD_CUDA_PROVIDER is OFF)!");
+    return UMF_RESULT_ERROR_NOT_SUPPORTED;
+}
+
 umf_memory_provider_ops_t *umfCUDAMemoryProviderOps(void) {
     // not supported
     LOG_ERR("CUDA provider is disabled (UMF_BUILD_CUDA_PROVIDER is OFF)!");
@@ -80,7 +99,6 @@ umf_memory_provider_ops_t *umfCUDAMemoryProviderOps(void) {
 #include "utils_assert.h"
 #include "utils_common.h"
 #include "utils_concurrency.h"
-#include "utils_load_library.h"
 #include "utils_log.h"
 #include "utils_sanitizers.h"
 
@@ -89,13 +107,22 @@ typedef struct cu_memory_provider_t {
     CUdevice device;
     umf_usm_memory_type_t memory_type;
     size_t min_alignment;
+    unsigned int alloc_flags;
 } cu_memory_provider_t;
 
 // CUDA Memory Provider settings struct
 typedef struct umf_cuda_memory_provider_params_t {
-    void *cuda_context_handle;         ///< Handle to the CUDA context
-    int cuda_device_handle;            ///< Handle to the CUDA device
-    umf_usm_memory_type_t memory_type; ///< Allocation memory type
+    // Handle to the CUDA context
+    void *cuda_context_handle;
+
+    // Handle to the CUDA device
+    int cuda_device_handle;
+
+    // Allocation memory type
+    umf_usm_memory_type_t memory_type;
+
+    // Allocation flags for cuMemHostAlloc/cuMemAllocManaged
+    unsigned int alloc_flags;
 } umf_cuda_memory_provider_params_t;
 
 typedef struct cu_ops_t {
@@ -103,7 +130,7 @@ typedef struct cu_ops_t {
         size_t *granularity, const CUmemAllocationProp *prop,
         CUmemAllocationGranularity_flags option);
     CUresult (*cuMemAlloc)(CUdeviceptr *dptr, size_t bytesize);
-    CUresult (*cuMemAllocHost)(void **pp, size_t bytesize);
+    CUresult (*cuMemHostAlloc)(void **pp, size_t bytesize, unsigned int flags);
     CUresult (*cuMemAllocManaged)(CUdeviceptr *dptr, size_t bytesize,
                                   unsigned int flags);
     CUresult (*cuMemFree)(CUdeviceptr dptr);
@@ -112,6 +139,7 @@ typedef struct cu_ops_t {
     CUresult (*cuGetErrorName)(CUresult error, const char **pStr);
     CUresult (*cuGetErrorString)(CUresult error, const char **pStr);
     CUresult (*cuCtxGetCurrent)(CUcontext *pctx);
+    CUresult (*cuCtxGetDevice)(CUdevice *device);
     CUresult (*cuCtxSetCurrent)(CUcontext ctx);
     CUresult (*cuIpcGetMemHandle)(CUipcMemHandle *pHandle, CUdeviceptr dptr);
     CUresult (*cuIpcOpenMemHandle)(CUdeviceptr *pdptr, CUipcMemHandle handle,
@@ -151,6 +179,9 @@ static umf_result_t cu2umf_result(CUresult result) {
     case CUDA_ERROR_INVALID_VALUE:
     case CUDA_ERROR_INVALID_HANDLE:
         return UMF_RESULT_ERROR_INVALID_ARGUMENT;
+    case CUDA_ERROR_DEINITIALIZED:
+        LOG_ERR("CUDA driver has been deinitialized");
+        return UMF_RESULT_ERROR_OUT_OF_RESOURCES;
     default:
         cu_store_last_native_error(result);
         return UMF_RESULT_ERROR_MEMORY_PROVIDER_SPECIFIC;
@@ -163,48 +194,61 @@ static void init_cu_global_state(void) {
 #else
     const char *lib_name = "libcuda.so";
 #endif
-    // check if CUDA shared library is already loaded
-    // we pass 0 as a handle to search the global symbol table
+    // The CUDA shared library should be already loaded by the user
+    // of the CUDA provider. UMF just want to reuse it
+    // and increase the reference count to the CUDA shared library.
+    void *lib_handle =
+        utils_open_library(lib_name, UMF_UTIL_OPEN_LIBRARY_NO_LOAD);
+    if (!lib_handle) {
+        LOG_ERR("Failed to open CUDA shared library");
+        Init_cu_global_state_failed = true;
+        return;
+    }
 
     // NOTE: some symbols defined in the lib have _vX postfixes - it is
     // important to load the proper version of functions
-    *(void **)&g_cu_ops.cuMemGetAllocationGranularity =
-        utils_get_symbol_addr(0, "cuMemGetAllocationGranularity", lib_name);
+    *(void **)&g_cu_ops.cuMemGetAllocationGranularity = utils_get_symbol_addr(
+        lib_handle, "cuMemGetAllocationGranularity", lib_name);
     *(void **)&g_cu_ops.cuMemAlloc =
-        utils_get_symbol_addr(0, "cuMemAlloc_v2", lib_name);
-    *(void **)&g_cu_ops.cuMemAllocHost =
-        utils_get_symbol_addr(0, "cuMemAllocHost_v2", lib_name);
+        utils_get_symbol_addr(lib_handle, "cuMemAlloc_v2", lib_name);
+    *(void **)&g_cu_ops.cuMemHostAlloc =
+        utils_get_symbol_addr(lib_handle, "cuMemHostAlloc", lib_name);
     *(void **)&g_cu_ops.cuMemAllocManaged =
-        utils_get_symbol_addr(0, "cuMemAllocManaged", lib_name);
+        utils_get_symbol_addr(lib_handle, "cuMemAllocManaged", lib_name);
     *(void **)&g_cu_ops.cuMemFree =
-        utils_get_symbol_addr(0, "cuMemFree_v2", lib_name);
+        utils_get_symbol_addr(lib_handle, "cuMemFree_v2", lib_name);
     *(void **)&g_cu_ops.cuMemFreeHost =
-        utils_get_symbol_addr(0, "cuMemFreeHost", lib_name);
+        utils_get_symbol_addr(lib_handle, "cuMemFreeHost", lib_name);
     *(void **)&g_cu_ops.cuGetErrorName =
-        utils_get_symbol_addr(0, "cuGetErrorName", lib_name);
+        utils_get_symbol_addr(lib_handle, "cuGetErrorName", lib_name);
     *(void **)&g_cu_ops.cuGetErrorString =
-        utils_get_symbol_addr(0, "cuGetErrorString", lib_name);
+        utils_get_symbol_addr(lib_handle, "cuGetErrorString", lib_name);
     *(void **)&g_cu_ops.cuCtxGetCurrent =
-        utils_get_symbol_addr(0, "cuCtxGetCurrent", lib_name);
+        utils_get_symbol_addr(lib_handle, "cuCtxGetCurrent", lib_name);
+    *(void **)&g_cu_ops.cuCtxGetDevice =
+        utils_get_symbol_addr(lib_handle, "cuCtxGetDevice", lib_name);
     *(void **)&g_cu_ops.cuCtxSetCurrent =
-        utils_get_symbol_addr(0, "cuCtxSetCurrent", lib_name);
+        utils_get_symbol_addr(lib_handle, "cuCtxSetCurrent", lib_name);
     *(void **)&g_cu_ops.cuIpcGetMemHandle =
-        utils_get_symbol_addr(0, "cuIpcGetMemHandle", lib_name);
+        utils_get_symbol_addr(lib_handle, "cuIpcGetMemHandle", lib_name);
     *(void **)&g_cu_ops.cuIpcOpenMemHandle =
-        utils_get_symbol_addr(0, "cuIpcOpenMemHandle_v2", lib_name);
+        utils_get_symbol_addr(lib_handle, "cuIpcOpenMemHandle_v2", lib_name);
     *(void **)&g_cu_ops.cuIpcCloseMemHandle =
-        utils_get_symbol_addr(0, "cuIpcCloseMemHandle", lib_name);
+        utils_get_symbol_addr(lib_handle, "cuIpcCloseMemHandle", lib_name);
 
     if (!g_cu_ops.cuMemGetAllocationGranularity || !g_cu_ops.cuMemAlloc ||
-        !g_cu_ops.cuMemAllocHost || !g_cu_ops.cuMemAllocManaged ||
+        !g_cu_ops.cuMemHostAlloc || !g_cu_ops.cuMemAllocManaged ||
         !g_cu_ops.cuMemFree || !g_cu_ops.cuMemFreeHost ||
         !g_cu_ops.cuGetErrorName || !g_cu_ops.cuGetErrorString ||
-        !g_cu_ops.cuCtxGetCurrent || !g_cu_ops.cuCtxSetCurrent ||
-        !g_cu_ops.cuIpcGetMemHandle || !g_cu_ops.cuIpcOpenMemHandle ||
-        !g_cu_ops.cuIpcCloseMemHandle) {
-        LOG_ERR("Required CUDA symbols not found.");
+        !g_cu_ops.cuCtxGetCurrent || !g_cu_ops.cuCtxGetDevice ||
+        !g_cu_ops.cuCtxSetCurrent || !g_cu_ops.cuIpcGetMemHandle ||
+        !g_cu_ops.cuIpcOpenMemHandle || !g_cu_ops.cuIpcCloseMemHandle) {
+        LOG_FATAL("Required CUDA symbols not found.");
         Init_cu_global_state_failed = true;
+        utils_close_library(lib_handle);
+        return;
     }
+    cu_lib_handle = lib_handle;
 }
 
 umf_result_t umfCUDAMemoryProviderParamsCreate(
@@ -222,9 +266,31 @@ umf_result_t umfCUDAMemoryProviderParamsCreate(
         return UMF_RESULT_ERROR_OUT_OF_HOST_MEMORY;
     }
 
-    params_data->cuda_context_handle = NULL;
-    params_data->cuda_device_handle = -1;
+    utils_init_once(&cu_is_initialized, init_cu_global_state);
+    if (Init_cu_global_state_failed) {
+        LOG_FATAL("Loading CUDA symbols failed");
+        return UMF_RESULT_ERROR_DEPENDENCY_UNAVAILABLE;
+    }
+
+    // initialize context and device to the current ones
+    CUcontext current_ctx = NULL;
+    CUresult cu_result = g_cu_ops.cuCtxGetCurrent(&current_ctx);
+    if (cu_result == CUDA_SUCCESS) {
+        params_data->cuda_context_handle = current_ctx;
+    } else {
+        params_data->cuda_context_handle = NULL;
+    }
+
+    CUdevice current_device = -1;
+    cu_result = g_cu_ops.cuCtxGetDevice(&current_device);
+    if (cu_result == CUDA_SUCCESS) {
+        params_data->cuda_device_handle = current_device;
+    } else {
+        params_data->cuda_device_handle = -1;
+    }
+
     params_data->memory_type = UMF_MEMORY_TYPE_UNKNOWN;
+    params_data->alloc_flags = 0;
 
     *hParams = params_data;
 
@@ -275,6 +341,18 @@ umf_result_t umfCUDAMemoryProviderParamsSetMemoryType(
     return UMF_RESULT_SUCCESS;
 }
 
+umf_result_t umfCUDAMemoryProviderParamsSetAllocFlags(
+    umf_cuda_memory_provider_params_handle_t hParams, unsigned int flags) {
+    if (!hParams) {
+        LOG_ERR("CUDA Memory Provider params handle is NULL");
+        return UMF_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    hParams->alloc_flags = flags;
+
+    return UMF_RESULT_SUCCESS;
+}
+
 static umf_result_t cu_memory_provider_initialize(void *params,
                                                   void **provider) {
     if (params == NULL) {
@@ -291,13 +369,19 @@ static umf_result_t cu_memory_provider_initialize(void *params,
     }
 
     if (cu_params->cuda_context_handle == NULL) {
+        LOG_ERR("Invalid context handle");
+        return UMF_RESULT_ERROR_INVALID_ARGUMENT;
+    }
+
+    if (cu_params->cuda_device_handle < 0) {
+        LOG_ERR("Invalid device handle");
         return UMF_RESULT_ERROR_INVALID_ARGUMENT;
     }
 
     utils_init_once(&cu_is_initialized, init_cu_global_state);
     if (Init_cu_global_state_failed) {
-        LOG_ERR("Loading CUDA symbols failed");
-        return UMF_RESULT_ERROR_UNKNOWN;
+        LOG_FATAL("Loading CUDA symbols failed");
+        return UMF_RESULT_ERROR_DEPENDENCY_UNAVAILABLE;
     }
 
     cu_memory_provider_t *cu_provider =
@@ -324,6 +408,17 @@ static umf_result_t cu_memory_provider_initialize(void *params,
     cu_provider->device = cu_params->cuda_device_handle;
     cu_provider->memory_type = cu_params->memory_type;
     cu_provider->min_alignment = min_alignment;
+
+    // If the memory type is shared (CUDA managed), the allocation flags must
+    // be set. NOTE: we do not check here if the flags are valid -
+    // this will be done by CUDA runtime.
+    if (cu_params->memory_type == UMF_MEMORY_TYPE_SHARED &&
+        cu_params->alloc_flags == 0) {
+        // the default setting is CU_MEM_ATTACH_GLOBAL
+        cu_provider->alloc_flags = CU_MEM_ATTACH_GLOBAL;
+    } else {
+        cu_provider->alloc_flags = cu_params->alloc_flags;
+    }
 
     *provider = cu_provider;
 
@@ -381,7 +476,8 @@ static umf_result_t cu_memory_provider_alloc(void *provider, size_t size,
     CUresult cu_result = CUDA_SUCCESS;
     switch (cu_provider->memory_type) {
     case UMF_MEMORY_TYPE_HOST: {
-        cu_result = g_cu_ops.cuMemAllocHost(resultPtr, size);
+        cu_result =
+            g_cu_ops.cuMemHostAlloc(resultPtr, size, cu_provider->alloc_flags);
         break;
     }
     case UMF_MEMORY_TYPE_DEVICE: {
@@ -390,7 +486,7 @@ static umf_result_t cu_memory_provider_alloc(void *provider, size_t size,
     }
     case UMF_MEMORY_TYPE_SHARED: {
         cu_result = g_cu_ops.cuMemAllocManaged((CUdeviceptr *)resultPtr, size,
-                                               CU_MEM_ATTACH_GLOBAL);
+                                               cu_provider->alloc_flags);
         break;
     }
     default:
@@ -476,22 +572,41 @@ static void cu_memory_provider_get_last_native_error(void *provider,
         return;
     }
 
-    const char *error_name = 0;
-    const char *error_string = 0;
-    g_cu_ops.cuGetErrorName(TLS_last_native_error.native_error, &error_name);
-    g_cu_ops.cuGetErrorString(TLS_last_native_error.native_error,
-                              &error_string);
-
+    CUresult result;
     size_t buf_size = 0;
-    strncpy(TLS_last_native_error.msg_buff, error_name, TLS_MSG_BUF_LEN - 1);
-    buf_size = strlen(TLS_last_native_error.msg_buff);
+    const char *error_name = NULL;
+    const char *error_string = NULL;
 
+    // If the error code is not recognized,
+    // CUDA_ERROR_INVALID_VALUE will be returned
+    // and error_name will be set to the NULL address.
+    result = g_cu_ops.cuGetErrorName(TLS_last_native_error.native_error,
+                                     &error_name);
+    if (result == CUDA_SUCCESS && error_name != NULL) {
+        strncpy(TLS_last_native_error.msg_buff, error_name,
+                TLS_MSG_BUF_LEN - 1);
+    } else {
+        strncpy(TLS_last_native_error.msg_buff, "cuGetErrorName() failed",
+                TLS_MSG_BUF_LEN - 1);
+    }
+
+    buf_size = strlen(TLS_last_native_error.msg_buff);
     strncat(TLS_last_native_error.msg_buff, " - ",
             TLS_MSG_BUF_LEN - buf_size - 1);
     buf_size = strlen(TLS_last_native_error.msg_buff);
 
-    strncat(TLS_last_native_error.msg_buff, error_string,
-            TLS_MSG_BUF_LEN - buf_size - 1);
+    // If the error code is not recognized,
+    // CUDA_ERROR_INVALID_VALUE will be returned
+    // and error_string will be set to the NULL address.
+    result = g_cu_ops.cuGetErrorString(TLS_last_native_error.native_error,
+                                       &error_string);
+    if (result == CUDA_SUCCESS && error_string != NULL) {
+        strncat(TLS_last_native_error.msg_buff, error_string,
+                TLS_MSG_BUF_LEN - buf_size - 1);
+    } else {
+        strncat(TLS_last_native_error.msg_buff, "cuGetErrorString() failed",
+                TLS_MSG_BUF_LEN - buf_size - 1);
+    }
 
     *pError = TLS_last_native_error.native_error;
     *ppMessage = TLS_last_native_error.msg_buff;
@@ -617,8 +732,8 @@ cu_memory_provider_close_ipc_handle(void *provider, void *ptr, size_t size) {
     return UMF_RESULT_SUCCESS;
 }
 
-static struct umf_memory_provider_ops_t UMF_CUDA_MEMORY_PROVIDER_OPS = {
-    .version = UMF_VERSION_CURRENT,
+static umf_memory_provider_ops_t UMF_CUDA_MEMORY_PROVIDER_OPS = {
+    .version = UMF_PROVIDER_OPS_VERSION_CURRENT,
     .initialize = cu_memory_provider_initialize,
     .finalize = cu_memory_provider_finalize,
     .alloc = cu_memory_provider_alloc,

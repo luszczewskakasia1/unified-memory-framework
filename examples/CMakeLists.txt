@@ -18,7 +18,7 @@ set(EXAMPLE_NAME umf_example_basic)
 add_umf_executable(
     NAME ${EXAMPLE_NAME}
     SRCS basic/basic.c
-    LIBS umf ${LIBHWLOC_LIBRARIES})
+    LIBS umf ${UMF_HWLOC_NAME})
 
 target_include_directories(
     ${EXAMPLE_NAME} PRIVATE ${UMF_CMAKE_SOURCE_DIR}/src/utils
@@ -41,16 +41,14 @@ if(UMF_POOL_SCALABLE_ENABLED)
     endif()
 endif()
 
-if(UMF_BUILD_GPU_EXAMPLES
-   AND UMF_BUILD_LIBUMF_POOL_DISJOINT
-   AND UMF_BUILD_LEVEL_ZERO_PROVIDER)
+if(UMF_BUILD_GPU_EXAMPLES AND UMF_BUILD_LEVEL_ZERO_PROVIDER)
     set(EXAMPLE_NAME umf_example_level_zero_shared_memory)
 
     add_umf_executable(
         NAME ${EXAMPLE_NAME}
         SRCS level_zero_shared_memory/level_zero_shared_memory.c
              common/examples_level_zero_helpers.c
-        LIBS disjoint_pool ze_loader umf)
+        LIBS ze_loader umf)
 
     target_include_directories(
         ${EXAMPLE_NAME}
@@ -72,14 +70,23 @@ if(UMF_BUILD_GPU_EXAMPLES
         set_property(TEST ${EXAMPLE_NAME} PROPERTY ENVIRONMENT_MODIFICATION
                                                    "${DLL_PATH_LIST}")
     endif()
+    if(LINUX)
+        # prepend LD_LIBRARY_PATH with ${CMAKE_BINARY_DIR}/lib it is required
+        # because ${CMAKE_BINARY_DIR}/lib contains libze_loader.so and tests
+        # should use it instead of system one.
+        set_property(
+            TEST ${EXAMPLE_NAME}
+            PROPERTY ENVIRONMENT_MODIFICATION
+                     "LD_LIBRARY_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/lib"
+        )
+    endif()
 else()
     message(STATUS "GPU Level Zero shared memory example requires "
-                   "UMF_BUILD_GPU_EXAMPLES, UMF_BUILD_LEVEL_ZERO_PROVIDER and "
-                   "UMF_BUILD_LIBUMF_POOL_DISJOINT to be turned ON - skipping")
+                   "UMF_BUILD_GPU_EXAMPLES and UMF_BUILD_LEVEL_ZERO_PROVIDER "
+                   "to be turned ON - skipping")
 endif()
 
 if(UMF_BUILD_GPU_EXAMPLES
-   AND UMF_BUILD_LIBUMF_POOL_DISJOINT
    AND UMF_BUILD_CUDA_PROVIDER
    AND UMF_CUDA_ENABLED)
     set(EXAMPLE_NAME umf_example_cuda_shared_memory)
@@ -87,7 +94,7 @@ if(UMF_BUILD_GPU_EXAMPLES
     add_umf_executable(
         NAME ${EXAMPLE_NAME}
         SRCS cuda_shared_memory/cuda_shared_memory.c
-        LIBS disjoint_pool cuda umf)
+        LIBS cuda umf)
 
     target_include_directories(
         ${EXAMPLE_NAME}
@@ -113,14 +120,13 @@ if(UMF_BUILD_GPU_EXAMPLES
 else()
     message(
         STATUS
-            "GPU CUDA shared memory example requires UMF_BUILD_GPU_EXAMPLES, UMF_BUILD_CUDA_PROVIDER, UMF_BUILD_LIBUMF_POOL_DISJOINT to be turned ON and installed CUDA libraries - skipping"
+            "GPU CUDA shared memory example requires UMF_BUILD_GPU_EXAMPLES and UMF_BUILD_CUDA_PROVIDER to be turned ON and installed CUDA libraries - skipping"
     )
 endif()
 
 # TODO: it looks like there is some problem with IPC implementation in Level
 # Zero on windows
 if(UMF_BUILD_GPU_EXAMPLES
-   AND UMF_BUILD_LIBUMF_POOL_DISJOINT
    AND UMF_BUILD_LEVEL_ZERO_PROVIDER
    AND LINUX)
     set(EXAMPLE_NAME umf_example_ipc_level_zero)
@@ -129,7 +135,7 @@ if(UMF_BUILD_GPU_EXAMPLES
         NAME ${EXAMPLE_NAME}
         SRCS ipc_level_zero/ipc_level_zero.c
              common/examples_level_zero_helpers.c
-        LIBS disjoint_pool ze_loader umf)
+        LIBS ze_loader umf)
 
     target_include_directories(
         ${EXAMPLE_NAME}
@@ -151,10 +157,20 @@ if(UMF_BUILD_GPU_EXAMPLES
         set_property(TEST ${EXAMPLE_NAME} PROPERTY ENVIRONMENT_MODIFICATION
                                                    "${DLL_PATH_LIST}")
     endif()
+    if(LINUX)
+        # prepend LD_LIBRARY_PATH with ${CMAKE_BINARY_DIR}/lib it is required
+        # because ${CMAKE_BINARY_DIR}/lib contains libze_loader.so and tests
+        # should use it instead of system one.
+        set_property(
+            TEST ${EXAMPLE_NAME}
+            PROPERTY ENVIRONMENT_MODIFICATION
+                     "LD_LIBRARY_PATH=path_list_prepend:${CMAKE_BINARY_DIR}/lib"
+        )
+    endif()
 else()
     message(
         STATUS
-            "IPC Level Zero example requires UMF_BUILD_GPU_EXAMPLES, UMF_BUILD_LEVEL_ZERO_PROVIDER and UMF_BUILD_LIBUMF_POOL_DISJOINT to be turned ON - skipping"
+            "IPC Level Zero example requires UMF_BUILD_GPU_EXAMPLES and UMF_BUILD_LEVEL_ZERO_PROVIDER to be turned ON - skipping"
     )
 endif()
 
@@ -215,7 +231,7 @@ if(LINUX)
     add_umf_executable(
         NAME ${EXAMPLE_NAME}
         SRCS memspace_numa/memspace_numa.c
-        LIBS umf ${LIBHWLOC_LIBRARIES} numa)
+        LIBS umf ${UMF_HWLOC_NAME} numa)
 
     target_include_directories(
         ${EXAMPLE_NAME}
@@ -238,7 +254,7 @@ if(LINUX)
     add_umf_executable(
         NAME ${EXAMPLE_NAME}
         SRCS memspace_hmat/memspace_hmat.c
-        LIBS umf ${LIBHWLOC_LIBRARIES} numa)
+        LIBS umf ${UMF_HWLOC_NAME} numa)
 
     target_include_directories(
         ${EXAMPLE_NAME}
@@ -262,7 +278,7 @@ if(LINUX)
         add_umf_executable(
             NAME ${EXAMPLE_NAME}
             SRCS custom_file_provider/custom_file_provider.c
-            LIBS umf ${LIBHWLOC_LIBRARIES})
+            LIBS umf ${UMF_HWLOC_NAME})
 
         target_include_directories(
             ${EXAMPLE_NAME} PRIVATE ${UMF_CMAKE_SOURCE_DIR}/src/utils

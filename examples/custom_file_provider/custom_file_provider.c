@@ -1,15 +1,12 @@
 /*
  *
- * Copyright (C) 2024 Intel Corporation
+ * Copyright (C) 2024-2025 Intel Corporation
  *
  * Under the Apache License v2.0 with LLVM Exceptions. See LICENSE.TXT.
  * SPDX-License-Identifier: Apache-2.0 WITH LLVM-exception
  *
  */
 #define _GNU_SOURCE 1
-
-#include <umf/base.h>
-#include <umf/pools/pool_scalable.h>
 
 #include <fcntl.h>
 #include <linux/falloc.h>
@@ -18,6 +15,9 @@
 #include <string.h>
 #include <sys/mman.h>
 #include <unistd.h>
+
+#include <umf/base.h>
+#include <umf/pools/pool_scalable.h>
 
 // Define the size for address reservation
 #define ADDRESS_RESERVATION ((size_t)16 * 1024 * 1024 * 1024)
@@ -234,7 +234,7 @@ static umf_result_t file_get_min_page_size(void *provider, void *ptr,
 
 // File provider operations
 static umf_memory_provider_ops_t file_ops = {
-    .version = UMF_VERSION_CURRENT,
+    .version = UMF_PROVIDER_OPS_VERSION_CURRENT,
     .initialize = file_init,
     .finalize = file_deinit,
     .alloc = file_alloc,
