@@ -1,10 +1,11 @@
 name: Test
- on: [push]
+on:
+  push:
+  workflow_dispatch:
  
- jobs:
-   test:
-     runs-on: self-hosted
-     steps:
-       - name: Print Hello World
-       - run: echo "Hello world"
-         run: echo "Hello world and hellow new runner"
+jobs:
+  test:
+    runs-on: self-hosted
+    steps:
+      - name: Print Hello World
+        run: echo "Hello world"
