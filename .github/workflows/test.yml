@@ -1,0 +1,10 @@
+name: Test
+on:
+  push:
+  workflow_dispatch:
+jobs:
+  test:
+    runs-on: [self-hosted, DSS-Windows, Windows]
+    steps:
+      - name: Run hello
+        run: echo "Hello world"
