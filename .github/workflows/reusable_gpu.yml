@@ -50,7 +50,7 @@ jobs:
         os: ${{ fromJSON(inputs.os)}}
         build_type: ${{ fromJSON(inputs.build_type)}}
 
-    runs-on: ["DSS-${{inputs.runner}}", "DSS-${{matrix.os}}"]
+    runs-on: ["self-hosted", "DSS-${{inputs.runner}}", "DSS-${{matrix.os}}"]
     steps:
       # Set number of processes and compiler based on OS
       - name: "[Win] Establish build params"
