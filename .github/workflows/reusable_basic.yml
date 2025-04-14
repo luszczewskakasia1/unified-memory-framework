@@ -249,7 +249,7 @@ jobs:
             level_zero_provider: 'OFF'
             cuda_provider: 'OFF'
 
-    runs-on: ${{matrix.os}}
+    runs-on: ['self-hosted', 'windows-2022']
 
     steps:
     - name: Checkout
@@ -327,7 +327,7 @@ jobs:
       matrix:
         build_type: [Release]
 
-    runs-on: 'windows-2022'
+    runs-on: ['self-hosted', 'windows-2022']
 
     steps:
     - name: Checkout
@@ -369,7 +369,7 @@ jobs:
       matrix:
         build_type: [Release]
 
-    runs-on: 'windows-2022'
+    runs-on: ['self-hosted', 'windows-2022']
 
     steps:
     - name: Checkout
@@ -411,7 +411,7 @@ jobs:
       matrix:
         build_type: [Release]
 
-    runs-on: 'windows-2022'
+    runs-on: ['self-hosted', 'windows-2022']
 
     steps:
     - name: Checkout
