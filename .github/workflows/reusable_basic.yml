@@ -220,28 +220,28 @@ jobs:
       VCPKG_PATH: "${{github.workspace}}/build/vcpkg/packages/hwloc_x64-windows;${{github.workspace}}/build/vcpkg/packages/tbb_x64-windows;${{github.workspace}}/build/vcpkg/packages/jemalloc_x64-windows"
     strategy:
       matrix:
-        os: ['windows-2019', 'windows-2022']
+        os: ['windows-2022']
         build_type: [Debug, Release]
         compiler: [{c: cl, cxx: cl}]
         shared_library: ['ON', 'OFF']
         level_zero_provider: ['ON']
         cuda_provider: ['ON']
         include:
-          - os: 'windows-2019'
-            # clang build fails on Windows 2022
-            build_type: Release
-            compiler: {c: clang-cl, cxx: clang-cl}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            toolset: "-T ClangCL"
-          - os: 'windows-2022'
-            build_type: Release
-            compiler: {c: cl, cxx: cl}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            umfd_lib: 'ON'
+          # - os: 'windows-2019'
+          #   # clang build fails on Windows 2022
+          #   build_type: Release
+          #   compiler: {c: clang-cl, cxx: clang-cl}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   toolset: "-T ClangCL"
+          # - os: 'windows-2022'
+          #   build_type: Release
+          #   compiler: {c: cl, cxx: cl}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   umfd_lib: 'ON'
           - os: 'windows-2022'
             build_type: Release
             compiler: {c: cl, cxx: cl}
