@@ -343,7 +343,7 @@ static umf_result_t ze_memory_provider_alloc(void *provider, size_t size,
     ze_memory_provider_t *ze_provider = (ze_memory_provider_t *)provider;
 
     ze_result_t ze_result = ZE_RESULT_SUCCESS;
-    switch (ze_provider->memory_type) {
+    switch ((umf_usm_memory_type_t)ze_provider->memory_type) {
     case UMF_MEMORY_TYPE_HOST: {
         ze_host_mem_alloc_desc_t host_desc = {
             .stype = ZE_STRUCTURE_TYPE_HOST_MEM_ALLOC_DESC,
