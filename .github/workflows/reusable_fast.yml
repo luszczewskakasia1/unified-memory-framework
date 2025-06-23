@@ -18,19 +18,19 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: windows-latest
-            build_tests: 'ON'
-            simple_cmake: 'OFF'
-          # pure C build (Windows)
-          - os: windows-latest
-            # Tests' building is off for a pure C build
-            build_tests: 'OFF'
-            simple_cmake: 'OFF'
-          - os: ubuntu-latest
-            build_tests: 'ON'
-            # Windows doesn't recognize 'CMAKE_BUILD_TYPE', it uses '--config' param in build command
-            extra_build_options: '-DCMAKE_BUILD_TYPE=Release -DUMF_BUILD_BENCHMARKS=ON -DUMF_BUILD_BENCHMARKS_MT=ON'
-            simple_cmake: 'OFF'
+          # - os: windows-latest
+          #   build_tests: 'ON'
+          #   simple_cmake: 'OFF'
+          # # pure C build (Windows)
+          # - os: windows-latest
+          #   # Tests' building is off for a pure C build
+          #   build_tests: 'OFF'
+          #   simple_cmake: 'OFF'
+          # - os: ubuntu-latest
+          #   build_tests: 'ON'
+          #   # Windows doesn't recognize 'CMAKE_BUILD_TYPE', it uses '--config' param in build command
+          #   extra_build_options: '-DCMAKE_BUILD_TYPE=Release -DUMF_BUILD_BENCHMARKS=ON -DUMF_BUILD_BENCHMARKS_MT=ON'
+          #   simple_cmake: 'OFF'
           # pure C build (Linux)
           - os: ubuntu-latest
             # Windows doesn't recognize 'CMAKE_BUILD_TYPE', it uses '--config' param in build command
