@@ -17,7 +17,7 @@ jobs:
     name: Ubuntu
     strategy:
       matrix:
-        os: 'ubuntu-24.04'
+        os: ['ubuntu-22.04','ubuntu-24.04']
         build_type: [Debug, Release]
         compiler: [{c: gcc, cxx: g++}]
         shared_library: ['OFF']
@@ -113,7 +113,7 @@ jobs:
             install_tbb: 'ON'
             disable_hwloc: 'OFF'
             link_hwloc_statically: 'ON'
-    runs-on: ${{matrix.os}}
+    runs-on: self-hosted
 
     steps:
     - name: Checkout
