@@ -113,7 +113,7 @@ jobs:
             install_tbb: 'ON'
             disable_hwloc: 'OFF'
             link_hwloc_statically: 'ON'
-    runs-on: ${{matrix.os}}
+    runs-on: [self-hosted, ${{matrix.os}}]
 
     steps:
     - name: Checkout
