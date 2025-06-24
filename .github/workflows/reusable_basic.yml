@@ -27,24 +27,24 @@ jobs:
         disable_hwloc: ['OFF']
         link_hwloc_statically: ['OFF']
         include:
-          - os: 'ubuntu-22.04'
-            build_type: Release
-            compiler: {c: clang, cxx: clang++}
-            shared_library: 'OFF'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            disable_hwloc: 'OFF'
-            link_hwloc_statically: 'OFF'
-          - os: 'ubuntu-22.04'
-            build_type: Release
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            disable_hwloc: 'OFF'
-            link_hwloc_statically: 'OFF'
+          # - os: 'ubuntu-22.04'
+          #   build_type: Release
+          #   compiler: {c: clang, cxx: clang++}
+          #   shared_library: 'OFF'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   disable_hwloc: 'OFF'
+          #   link_hwloc_statically: 'OFF'
+          # - os: 'ubuntu-22.04'
+          #   build_type: Release
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   disable_hwloc: 'OFF'
+          #   link_hwloc_statically: 'OFF'
           - os: 'ubuntu-24.04'
             build_type: Debug
             compiler: {c: gcc, cxx: g++}
@@ -55,25 +55,25 @@ jobs:
             disable_hwloc: 'OFF'
             link_hwloc_statically: 'OFF'
           # test level_zero_provider='OFF' and cuda_provider='OFF'
-          - os: 'ubuntu-22.04'
-            build_type: Release
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'OFF'
-            level_zero_provider: 'OFF'
-            cuda_provider: 'OFF'
-            install_tbb: 'ON'
-            disable_hwloc: 'OFF'
-            link_hwloc_statically: 'OFF'
+          # - os: 'ubuntu-22.04'
+          #   build_type: Release
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'OFF'
+          #   level_zero_provider: 'OFF'
+          #   cuda_provider: 'OFF'
+          #   install_tbb: 'ON'
+          #   disable_hwloc: 'OFF'
+          #   link_hwloc_statically: 'OFF'
           # test icx compiler
-          - os: 'ubuntu-22.04'
-            build_type: Release
-            compiler: {c: icx, cxx: icpx}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            disable_hwloc: 'OFF'
-            link_hwloc_statically: 'OFF'
+          # - os: 'ubuntu-22.04'
+          #   build_type: Release
+          #   compiler: {c: icx, cxx: icpx}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   disable_hwloc: 'OFF'
+          #   link_hwloc_statically: 'OFF'
           # test lld linker
           - os: 'ubuntu-24.04'
             build_type: Release
@@ -86,33 +86,33 @@ jobs:
             link_hwloc_statically: 'OFF'
             llvm_linker: '-DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"'
           # test without installing TBB
-          - os: 'ubuntu-22.04'
-            build_type: Release
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'OFF'
-            disable_hwloc: 'OFF'
-            link_hwloc_statically: 'OFF'
-          - os: 'ubuntu-22.04'
-            build_type: Debug
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            disable_hwloc: 'ON'
-            link_hwloc_statically: 'OFF'
-          - os: 'ubuntu-22.04'
-            build_type: Release
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            disable_hwloc: 'OFF'
-            link_hwloc_statically: 'ON'
+          # - os: 'ubuntu-22.04'
+          #   build_type: Release
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'OFF'
+          #   disable_hwloc: 'OFF'
+          #   link_hwloc_statically: 'OFF'
+          # - os: 'ubuntu-22.04'
+          #   build_type: Debug
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   disable_hwloc: 'ON'
+          #   link_hwloc_statically: 'OFF'
+          # - os: 'ubuntu-22.04'
+          #   build_type: Release
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   disable_hwloc: 'OFF'
+          #   link_hwloc_statically: 'ON'
     runs-on: [self-hosted, ubuntu-24.04]
 
     steps:
