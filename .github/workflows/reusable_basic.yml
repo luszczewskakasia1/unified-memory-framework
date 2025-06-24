@@ -104,15 +104,15 @@ jobs:
           #   install_tbb: 'ON'
           #   disable_hwloc: 'ON'
           #   link_hwloc_statically: 'OFF'
-          - os: 'ubuntu-24.04'
-            build_type: Release
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            disable_hwloc: 'OFF'
-            link_hwloc_statically: 'ON'
+          # - os: 'ubuntu-22.04'
+          #   build_type: Release
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   disable_hwloc: 'OFF'
+          #   link_hwloc_statically: 'ON'
     runs-on: [self-hosted, ubuntu-24.04]
 
     steps:
