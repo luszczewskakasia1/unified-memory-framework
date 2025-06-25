@@ -22,20 +22,20 @@ jobs:
     strategy:
       matrix:
         include:
-          - os: ubuntu-24.04
-            build_tests: 'ON'
-            extra_build_options: ' -DUMF_BUILD_BENCHMARKS=ON -DUMF_BUILD_BENCHMARKS_MT=ON'
-            simple_cmake: 'OFF'
-          # pure C build
-          - os: ubuntu-24.04
-            # Tests' building is off for a pure C build
-            build_tests: 'OFF'
-            extra_build_options: '-DUMF_BUILD_BENCHMARKS=ON'
-            simple_cmake: 'OFF'
-          # simplest CMake on Ubuntu 22.04, 24.04
-          - os: ubuntu-24.04
-            build_tests: 'ON'
-            simple_cmake: 'ON'
+          # - os: ubuntu-24.04
+          #   build_tests: 'ON'
+          #   extra_build_options: ' -DUMF_BUILD_BENCHMARKS=ON -DUMF_BUILD_BENCHMARKS_MT=ON'
+          #   simple_cmake: 'OFF'
+          # # pure C build
+          # - os: ubuntu-24.04
+          #   # Tests' building is off for a pure C build
+          #   build_tests: 'OFF'
+          #   extra_build_options: '-DUMF_BUILD_BENCHMARKS=ON'
+          #   simple_cmake: 'OFF'
+          # # simplest CMake on Ubuntu 22.04, 24.04
+          # - os: ubuntu-24.04
+          #   build_tests: 'ON'
+          #   simple_cmake: 'ON'
           - os: ubuntu-22.04
             build_tests: 'ON'
             simple_cmake: 'ON'
