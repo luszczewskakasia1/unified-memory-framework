@@ -15,12 +15,12 @@ env:
 
 jobs:
   ubuntu-build:
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/bb-ur/umf-${{ matrix.os }}:latest
-      options: --user test_user --cap-add=SYS_NICE --cap-add=SYS_PTRACE
-      volumes:
-        - ${{ github.workspace }}:${{ github.workspace }}
+    runs-on: [self-hosted, ubuntu-22.04]
+    # container:
+    #   image: ghcr.io/bb-ur/umf-${{ matrix.os }}:latest
+    #   options: --user test_user --cap-add=SYS_NICE --cap-add=SYS_PTRACE
+    #   volumes:
+    #     - ${{ github.workspace }}:${{ github.workspace }}
     strategy:
       matrix:
         os: ['ubuntu-22.04']
