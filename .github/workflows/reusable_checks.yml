@@ -10,7 +10,7 @@ permissions:
 jobs:
   CodeChecks:
     name: Basic code checks
-    runs-on: ${{ github.repository_owner == 'oneapi-src' && 'intel-ubuntu-22.04' || 'ubuntu-latest' }}
+    runs-on: ${{ github.repository_owner == 'oneapi-src' && 'intel-ubuntu-22.04' || 'ubuntu-22.04' }}
 
     steps:
     - name: Checkout repository
