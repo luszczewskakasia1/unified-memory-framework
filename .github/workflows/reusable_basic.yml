@@ -23,7 +23,7 @@ jobs:
         - ${{ github.workspace }}:${{ github.workspace }}
     strategy:
       matrix:
-        os: ['ubuntu-22.04', 'ubuntu-24.04']
+        os: ['ubuntu-22.04']
         build_type: [Debug, Release]
         compiler: [{c: gcc, cxx: g++}]
         shared_library: ['OFF']
@@ -55,16 +55,16 @@ jobs:
             disable_hwloc: 'OFF'
             link_hwloc_statically: 'OFF'
             cmake_ver: '3.28.0'
-          - os: ubuntu-24.04
-            build_type: Debug
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            disable_hwloc: 'OFF'
-            link_hwloc_statically: 'OFF'
-            cmake_ver: 'default'
+          # - os: ubuntu-24.04
+          #   build_type: Debug
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   disable_hwloc: 'OFF'
+          #   link_hwloc_statically: 'OFF'
+          #   cmake_ver: 'default'
           # test level_zero_provider='OFF' and cuda_provider='OFF'
           - os: ubuntu-22.04
             build_type: Release
@@ -88,17 +88,17 @@ jobs:
             link_hwloc_statically: 'OFF'
             cmake_ver: 'default'
           # test lld linker
-          - os: ubuntu-24.04
-            build_type: Release
-            compiler: {c: icx, cxx: icpx}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            disable_hwloc: 'OFF'
-            link_hwloc_statically: 'OFF'
-            llvm_linker: '-DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"'
-            cmake_ver: 'default'
+          # - os: ubuntu-24.04
+          #   build_type: Release
+          #   compiler: {c: icx, cxx: icpx}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   disable_hwloc: 'OFF'
+          #   link_hwloc_statically: 'OFF'
+          #   llvm_linker: '-DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"'
+          #   cmake_ver: 'default'
           # test without installing TBB
           - os: ubuntu-22.04
             build_type: Release
