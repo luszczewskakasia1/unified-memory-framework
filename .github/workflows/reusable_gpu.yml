@@ -16,7 +16,7 @@ on:
       os:
         description: A list of OSes
         type: string
-        default: "['Ubuntu', 'Windows']"
+        default: "['Windows']"
       build_type:
         description: A list of build types
         type: string
