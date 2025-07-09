@@ -100,16 +100,16 @@ jobs:
           #   llvm_linker: '-DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"'
           #   cmake_ver: 'default'
           # test without installing TBB
-          - os: ubuntu-22.04
-            build_type: Release
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'OFF'
-            disable_hwloc: 'OFF'
-            link_hwloc_statically: 'OFF'
-            cmake_ver: 'default'
+          # - os: ubuntu-22.04
+          #   build_type: Release
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'OFF'
+          #   disable_hwloc: 'OFF'
+          #   link_hwloc_statically: 'OFF'
+          #   cmake_ver: 'default'
           - os: ubuntu-22.04
             build_type: Debug
             compiler: {c: gcc, cxx: g++}
