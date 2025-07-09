@@ -146,17 +146,17 @@ jobs:
         chmod +x cmake-${{matrix.cmake_ver}}-Linux-x86_64.sh
         echo ${USERPASS} | sudo -Sk ./cmake-${{matrix.cmake_ver}}-Linux-x86_64.sh --skip-license --prefix=/usr/local
 
-    - name: Uninstall hwloc
-      if: matrix.disable_hwloc == 'ON'
-      run: |
-        echo ${USERPASS} | sudo -Sk apt-get remove --purge -y '*hwloc*'
-        echo ${USERPASS} | sudo -Sk apt-get autoremove -y
+    # - name: Uninstall hwloc
+    #   if: matrix.disable_hwloc == 'ON'
+    #   run: |
+    #     echo ${USERPASS} | sudo -Sk apt-get remove --purge -y '*hwloc*'
+    #     echo ${USERPASS} | sudo -Sk apt-get autoremove -y
 
-    - name: Uninstall TBB apt package
-      if: matrix.install_tbb == 'OFF'
-      run: |
-        echo ${USERPASS} | sudo -Sk apt-get remove --purge -y '*tbb*'
-        echo ${USERPASS} | sudo -Sk apt-get autoremove -y
+    # - name: Uninstall TBB apt package
+    #   if: matrix.install_tbb == 'OFF'
+    #   run: |
+    #     echo ${USERPASS} | sudo -Sk apt-get remove --purge -y '*tbb*'
+    #     echo ${USERPASS} | sudo -Sk apt-get autoremove -y
 
     - name: Install oneAPI basekit
       if: matrix.compiler.cxx == 'icpx'
