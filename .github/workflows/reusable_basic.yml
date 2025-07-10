@@ -236,7 +236,7 @@ jobs:
       VCPKG_PATH_BIN: "${{github.workspace}}/build/vcpkg/packages/hwloc_x64-windows/bin;${{github.workspace}}/build/vcpkg/packages/tbb_x64-windows/bin;${{github.workspace}}/build/vcpkg/packages/jemalloc_x64-windows/bin"
     strategy:
       matrix:
-        os: ['windows-2022', 'windows-2025']
+        os: [Windows', 'windows-2025']
         build_type: [Debug, Release]
         compiler: [{c: cl, cxx: cl}]
         shared_library: ['ON', 'OFF']
@@ -262,7 +262,7 @@ jobs:
             cuda_provider: 'OFF'
             cmake_ver: '3.28.0-windows-x86_64'
           # umfd enabled (this job will replace one from matrix)
-          - os: 'windows-2022'
+          - os: 'Windows'
             build_type: Release
             compiler: {c: cl, cxx: cl}
             shared_library: 'ON'
