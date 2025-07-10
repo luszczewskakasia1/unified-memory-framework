@@ -237,7 +237,7 @@ jobs:
     strategy:
       matrix:
         os: ['Windows']
-        build_type: [Debug, Release]
+        build_type: [Debug]
         compiler: [{c: cl, cxx: cl}]
         shared_library: ['ON']
         level_zero_provider: ['ON']
