@@ -165,6 +165,7 @@ jobs:
 
     - name: Get UMF version
       run: |
+        git config --global safe.directory "*"
         git config --global --add safe.directory $GITHUB_WORKSPACE
         VERSION=$(git describe --tags --abbrev=0 | grep -oP '\d+\.\d+\.\d+')
         echo "UMF_VERSION=$VERSION" >> $GITHUB_ENV
