@@ -86,7 +86,11 @@ jobs:
 
       - name: "[Win] Install dependencies"
         if: matrix.os == 'Windows'
-        run: vcpkg install --triplet x64-windows
+        run: |
+          vcpkg install --triplet x64-windows
+          $env:Path = "${{env.VCPKG_PATH_BIN}};$env:Path"
+          echo "PATH=$env:Path" >> $env:GITHUB_ENV
+        shell: pwsh
 
       # note: disable all providers except the one being tested
       # '-DCMAKE_SUPPRESS_REGENERATION=ON' is the WA for the error: "CUSTOMBUILD : CMake error : Cannot restore timestamp"
