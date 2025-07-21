@@ -37,7 +37,7 @@ env:
 jobs:
   gpu:
     env:
-      VCPKG_PATH: "${{github.workspace}}/build/vcpkg/packages/hwloc_x64-windows;${{github.workspace}}/build/vcpkg/packages/tbb_x64-windows;${{github.workspace}}/build/vcpkg/packages/jemalloc_x64-windows;"
+      VCPKG_PATH: "${{github.workspace}}/build/vcpkg/packages/hwloc_x64-windows;${{github.workspace}}/build/vcpkg/packages/tbb_x64-windows;${{github.workspace}}/build/vcpkg/packages/jemalloc_x64-windows;C:/level-zero/build"
       COVERAGE_NAME : "exports-coverage-${{inputs.provider}}-${{inputs.runner}}"
     # run only on upstream; forks will not have the HW
     # if: github.repository == 'oneapi-src/unified-memory-framework'
