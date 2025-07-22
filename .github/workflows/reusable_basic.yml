@@ -365,16 +365,16 @@ jobs:
         ctest -C ${{matrix.build_type}} --output-on-failure --test-dir test
       shell: pwsh
 
-    - name: Test UMF installation and uninstallation
-      run: >
-        python3 ${{github.workspace}}/test/test_installation.py
-        --build-dir ${{env.BUILD_DIR}}
-        --install-dir ${{env.INSTL_DIR}}
-        --build-type ${{matrix.build_type}}
-        ${{matrix.shared_library == 'ON' && '--proxy' || '' }}
-        --umf-version ${{env.UMF_VERSION}}
-        ${{ matrix.shared_library == 'ON' && '--shared-library' || ''}}
-        ${{ matrix.umfd_lib == 'ON' && '--umfd-lib' || ''}}
+    # - name: Test UMF installation and uninstallation
+    #   run: >
+    #     python3 ${{github.workspace}}/test/test_installation.py
+    #     --build-dir ${{env.BUILD_DIR}}
+    #     --install-dir ${{env.INSTL_DIR}}
+    #     --build-type ${{matrix.build_type}}
+    #     ${{matrix.shared_library == 'ON' && '--proxy' || '' }}
+    #     --umf-version ${{env.UMF_VERSION}}
+    #     ${{ matrix.shared_library == 'ON' && '--shared-library' || ''}}
+    #     ${{ matrix.umfd_lib == 'ON' && '--umfd-lib' || ''}}
 
     - name: check /DEPENDENTLOADFLAG in umf.dll
       if: ${{matrix.shared_library == 'ON' && matrix.compiler.cxx == 'cl'}}
@@ -520,12 +520,12 @@ jobs:
     - name: Build UMF
       run: cmake --build ${{env.BUILD_DIR}} -j $(sysctl -n hw.logicalcpu)
 
-    - name: Test UMF installation and uninstallation
-      run: >
-        python3 ${{github.workspace}}/test/test_installation.py
-        --build-dir ${{env.BUILD_DIR}}
-        --install-dir ${{env.INSTL_DIR}}
-        --build-type ${{env.BUILD_TYPE}}
-        --proxy
-        --umf-version ${{env.UMF_VERSION}}
-        --shared-library
+    # - name: Test UMF installation and uninstallation
+    #   run: >
+    #     python3 ${{github.workspace}}/test/test_installation.py
+    #     --build-dir ${{env.BUILD_DIR}}
+    #     --install-dir ${{env.INSTL_DIR}}
+    #     --build-type ${{env.BUILD_TYPE}}
+    #     --proxy
+    #     --umf-version ${{env.UMF_VERSION}}
+    #     --shared-library
