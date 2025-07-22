@@ -59,6 +59,7 @@ jobs:
           echo "CXX_COMPILER=cl" >> $env:GITHUB_ENV
           echo "PROCS=$Env:NUMBER_OF_PROCESSORS" >> $env:GITHUB_ENV
           echo "EXTRA_CMAKE_PATH=$Env:CUDA_PATH" >> $env:GITHUB_ENV
+        shell: powershell
 
       - name: "[Lin] Establish build params"
         if : ${{ matrix.os == 'Ubuntu' }}
