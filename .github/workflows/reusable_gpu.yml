@@ -46,7 +46,7 @@ jobs:
         shared_library: ${{ fromJSON(inputs.shared_lib)}}
         os: ${{ fromJSON(inputs.os)}}
     name: GPU (${{matrix.os}}, shared=${{matrix.shared_library}})
-    runs-on: ["DSS-${{inputs.runner}}", "DSS-${{matrix.os}}"]
+    runs-on: ["self-hosted", "DSS-${{inputs.runner}}", "DSS-${{matrix.os}}"]
 
     steps:
       # Set various build params based on OS
