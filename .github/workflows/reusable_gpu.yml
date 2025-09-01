@@ -107,10 +107,17 @@ jobs:
           vcpkgGitCommitId: ea2a964f9303270322cf3f2d51c265ba146c422d # 1.04.2025
           vcpkgDirectory: ${{github.workspace}}/vcpkg
           vcpkgJsonGlob: '**/vcpkg.json'
+      - name: Checks
+        run: |
+          pwd
+          ls C:\actions-runner\_work\unified-memory-framework\unified-memory-framework\vcpkg
+          ls C:\actions-runner\_work\unified-memory-framework\unified-memory-framework\
 
       - name: "[Win] Install dependencies"
         if: matrix.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
-        run: vcpkg install --triplet x64-windows
+        run: |
+          vcpkg install --vcpkg-root=C:\actions-runner\_work\unified-memory-framework\unified-memory-framework\vcpkg --x-install-root=C:\actions-runner\_work\unified-memory-framework\unified-memory-framework\build
+          vcpkg install --triplet x64-windows
 
       # note: disable all providers except the one being tested
       # '-DCMAKE_SUPPRESS_REGENERATION=ON' is the WA for the error: "CUSTOMBUILD : CMake error : Cannot restore timestamp"
