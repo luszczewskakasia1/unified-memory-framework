@@ -254,6 +254,11 @@ jobs:
         echo $Env:UserName
         echo $env:PATH
       shell: powershell
+
+    - name: Current location
+      run: pwd
+      shell: powershell
+      
     - name: Checkout
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
@@ -296,6 +301,10 @@ jobs:
       if: steps.cache.outputs.cache-hit == 'true'
       run: |
         Expand-Archive -Path ${{github.workspace}}/vcpkg_pkgs_cache.zip -DestinationPath ${{github.workspace}}/vcpkg -Force
+
+    - name: Current location
+      run: pwd
+      shell: powershell
 
     - name: Initialize vcpkg
       if: steps.cache.outputs.cache-hit != 'true'
