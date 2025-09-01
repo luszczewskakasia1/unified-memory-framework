@@ -114,8 +114,8 @@ jobs:
 
       - name: "[Win] Install dependencies"
         if: matrix.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
-        run: vcpkg install --triplet x64-windows
-        # run: vcpkg install hwloc jemalloc tbb --classic
+        # run: vcpkg install --triplet x64-windows
+        run: vcpkg install hwloc jemalloc tbb --classic
         working-directory: ${{ github.workspace }}
           # 
 
