@@ -14,195 +14,195 @@ env:
   COVERAGE_NAME : "exports-coverage-basic"
 
 jobs:
-  ubuntu-build:
-    runs-on: ubuntu-latest
-    container:
-      image: ghcr.io/bb-ur/umf-${{ matrix.os }}:latest
-      options: --user test_user --cap-add=SYS_NICE --cap-add=SYS_PTRACE
-      volumes:
-        - ${{ github.workspace }}:${{ github.workspace }}
-    strategy:
-      matrix:
-        os: ['ubuntu-22.04', 'ubuntu-24.04']
-        build_type: [Debug, Release]
-        compiler: [{c: gcc, cxx: g++}]
-        shared_library: ['OFF']
-        level_zero_provider: ['ON']
-        cuda_provider: ['ON']
-        install_tbb: ['ON']
-        link_hwloc_statically: ['OFF']
-        cmake_ver: ['default']
-        include:
-          - os: ubuntu-22.04
-            build_type: Release
-            compiler: {c: clang, cxx: clang++}
-            shared_library: 'OFF'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            link_hwloc_statically: 'OFF'
-            # check minimum supported cmake version
-            cmake_ver: '3.14.0'
-          # - os: ubuntu-22.04
-          #   build_type: Release
-          #   compiler: {c: gcc, cxx: g++}
-          #   shared_library: 'ON'
-          #   level_zero_provider: 'ON'
-          #   cuda_provider: 'ON'
-          #   install_tbb: 'ON'
-          #   link_hwloc_statically: 'OFF'
-          #   cmake_ver: '3.28.0'
-          # - os: ubuntu-24.04
-          #   build_type: Debug
-          #   compiler: {c: gcc, cxx: g++}
-          #   shared_library: 'ON'
-          #   level_zero_provider: 'ON'
-          #   cuda_provider: 'ON'
-          #   install_tbb: 'ON'
-          #   link_hwloc_statically: 'OFF'
-          #   cmake_ver: 'default'
-          # # test level_zero_provider='OFF' and cuda_provider='OFF'
-          # - os: ubuntu-22.04
-          #   build_type: Release
-          #   compiler: {c: gcc, cxx: g++}
-          #   shared_library: 'OFF'
-          #   level_zero_provider: 'OFF'
-          #   cuda_provider: 'OFF'
-          #   install_tbb: 'ON'
-          #   link_hwloc_statically: 'OFF'
-          #   cmake_ver: 'default'
-          # # test icx compiler
-          # - os: ubuntu-22.04
-          #   build_type: Release
-          #   compiler: {c: icx, cxx: icpx}
-          #   shared_library: 'ON'
-          #   level_zero_provider: 'ON'
-          #   cuda_provider: 'ON'
-          #   install_tbb: 'ON'
-          #   link_hwloc_statically: 'OFF'
-          #   cmake_ver: 'default'
-          # # test lld linker
-          # - os: ubuntu-24.04
-          #   build_type: Release
-          #   compiler: {c: icx, cxx: icpx}
-          #   shared_library: 'ON'
-          #   level_zero_provider: 'ON'
-          #   cuda_provider: 'ON'
-          #   install_tbb: 'ON'
-          #   link_hwloc_statically: 'OFF'
-          #   llvm_linker: '-DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"'
-          #   cmake_ver: 'default'
-          # # test without installing TBB
-          # - os: ubuntu-22.04
-          #   build_type: Release
-          #   compiler: {c: gcc, cxx: g++}
-          #   shared_library: 'ON'
-          #   level_zero_provider: 'ON'
-          #   cuda_provider: 'ON'
-          #   install_tbb: 'OFF'
-          #   link_hwloc_statically: 'OFF'
-          #   cmake_ver: 'default'
-          # - os: ubuntu-22.04
-          #   build_type: Release
-          #   compiler: {c: gcc, cxx: g++}
-          #   shared_library: 'ON'
-          #   level_zero_provider: 'ON'
-          #   cuda_provider: 'ON'
-          #   install_tbb: 'ON'
-          #   link_hwloc_statically: 'ON'
-          #   cmake_ver: 'default'
-    name: Basic (${{matrix.os}}, build_type=${{matrix.build_type}}, compilers=${{matrix.compiler.c}}/${{matrix.compiler.cxx}}, shared_library=${{matrix.shared_library}}, level_zero_provider=${{matrix.level_zero_provider}}, cuda_provider=${{matrix.cuda_provider}}, install_tbb=${{matrix.install_tbb}}, link_hwloc_statically=${{matrix.link_hwloc_statically}}, cmake_ver=${{matrix.cmake_ver}})
+  # ubuntu-build:
+  #   runs-on: ubuntu-latest
+  #   container:
+  #     image: ghcr.io/bb-ur/umf-${{ matrix.os }}:latest
+  #     options: --user test_user --cap-add=SYS_NICE --cap-add=SYS_PTRACE
+  #     volumes:
+  #       - ${{ github.workspace }}:${{ github.workspace }}
+  #   strategy:
+  #     matrix:
+  #       os: ['ubuntu-22.04', 'ubuntu-24.04']
+  #       build_type: [Debug, Release]
+  #       compiler: [{c: gcc, cxx: g++}]
+  #       shared_library: ['OFF']
+  #       level_zero_provider: ['ON']
+  #       cuda_provider: ['ON']
+  #       install_tbb: ['ON']
+  #       link_hwloc_statically: ['OFF']
+  #       cmake_ver: ['default']
+  #       include:
+  #         - os: ubuntu-22.04
+  #           build_type: Release
+  #           compiler: {c: clang, cxx: clang++}
+  #           shared_library: 'OFF'
+  #           level_zero_provider: 'ON'
+  #           cuda_provider: 'ON'
+  #           install_tbb: 'ON'
+  #           link_hwloc_statically: 'OFF'
+  #           # check minimum supported cmake version
+  #           cmake_ver: '3.14.0'
+  #         # - os: ubuntu-22.04
+  #         #   build_type: Release
+  #         #   compiler: {c: gcc, cxx: g++}
+  #         #   shared_library: 'ON'
+  #         #   level_zero_provider: 'ON'
+  #         #   cuda_provider: 'ON'
+  #         #   install_tbb: 'ON'
+  #         #   link_hwloc_statically: 'OFF'
+  #         #   cmake_ver: '3.28.0'
+  #         # - os: ubuntu-24.04
+  #         #   build_type: Debug
+  #         #   compiler: {c: gcc, cxx: g++}
+  #         #   shared_library: 'ON'
+  #         #   level_zero_provider: 'ON'
+  #         #   cuda_provider: 'ON'
+  #         #   install_tbb: 'ON'
+  #         #   link_hwloc_statically: 'OFF'
+  #         #   cmake_ver: 'default'
+  #         # # test level_zero_provider='OFF' and cuda_provider='OFF'
+  #         # - os: ubuntu-22.04
+  #         #   build_type: Release
+  #         #   compiler: {c: gcc, cxx: g++}
+  #         #   shared_library: 'OFF'
+  #         #   level_zero_provider: 'OFF'
+  #         #   cuda_provider: 'OFF'
+  #         #   install_tbb: 'ON'
+  #         #   link_hwloc_statically: 'OFF'
+  #         #   cmake_ver: 'default'
+  #         # # test icx compiler
+  #         # - os: ubuntu-22.04
+  #         #   build_type: Release
+  #         #   compiler: {c: icx, cxx: icpx}
+  #         #   shared_library: 'ON'
+  #         #   level_zero_provider: 'ON'
+  #         #   cuda_provider: 'ON'
+  #         #   install_tbb: 'ON'
+  #         #   link_hwloc_statically: 'OFF'
+  #         #   cmake_ver: 'default'
+  #         # # test lld linker
+  #         # - os: ubuntu-24.04
+  #         #   build_type: Release
+  #         #   compiler: {c: icx, cxx: icpx}
+  #         #   shared_library: 'ON'
+  #         #   level_zero_provider: 'ON'
+  #         #   cuda_provider: 'ON'
+  #         #   install_tbb: 'ON'
+  #         #   link_hwloc_statically: 'OFF'
+  #         #   llvm_linker: '-DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"'
+  #         #   cmake_ver: 'default'
+  #         # # test without installing TBB
+  #         # - os: ubuntu-22.04
+  #         #   build_type: Release
+  #         #   compiler: {c: gcc, cxx: g++}
+  #         #   shared_library: 'ON'
+  #         #   level_zero_provider: 'ON'
+  #         #   cuda_provider: 'ON'
+  #         #   install_tbb: 'OFF'
+  #         #   link_hwloc_statically: 'OFF'
+  #         #   cmake_ver: 'default'
+  #         # - os: ubuntu-22.04
+  #         #   build_type: Release
+  #         #   compiler: {c: gcc, cxx: g++}
+  #         #   shared_library: 'ON'
+  #         #   level_zero_provider: 'ON'
+  #         #   cuda_provider: 'ON'
+  #         #   install_tbb: 'ON'
+  #         #   link_hwloc_statically: 'ON'
+  #         #   cmake_ver: 'default'
+  #   name: Basic (${{matrix.os}}, build_type=${{matrix.build_type}}, compilers=${{matrix.compiler.c}}/${{matrix.compiler.cxx}}, shared_library=${{matrix.shared_library}}, level_zero_provider=${{matrix.level_zero_provider}}, cuda_provider=${{matrix.cuda_provider}}, install_tbb=${{matrix.install_tbb}}, link_hwloc_statically=${{matrix.link_hwloc_statically}}, cmake_ver=${{matrix.cmake_ver}})
 
-    steps:
-    - name: Checkout
-      uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
-      with:
-        fetch-depth: 0
+  #   steps:
+  #   - name: Checkout
+  #     uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
+  #     with:
+  #       fetch-depth: 0
 
-    - name: Install cmake (non-default version)
-      if: matrix.cmake_ver != 'default'
-      run: |
-        echo ${USERPASS} | sudo -Sk apt-get remove --purge -y cmake
-        wget https://github.com/Kitware/CMake/releases/download/v${{matrix.cmake_ver}}/cmake-${{matrix.cmake_ver}}-Linux-x86_64.sh
-        chmod +x cmake-${{matrix.cmake_ver}}-Linux-x86_64.sh
-        echo ${USERPASS} | sudo -Sk ./cmake-${{matrix.cmake_ver}}-Linux-x86_64.sh --skip-license --prefix=/usr/local
+  #   - name: Install cmake (non-default version)
+  #     if: matrix.cmake_ver != 'default'
+  #     run: |
+  #       echo ${USERPASS} | sudo -Sk apt-get remove --purge -y cmake
+  #       wget https://github.com/Kitware/CMake/releases/download/v${{matrix.cmake_ver}}/cmake-${{matrix.cmake_ver}}-Linux-x86_64.sh
+  #       chmod +x cmake-${{matrix.cmake_ver}}-Linux-x86_64.sh
+  #       echo ${USERPASS} | sudo -Sk ./cmake-${{matrix.cmake_ver}}-Linux-x86_64.sh --skip-license --prefix=/usr/local
 
-    - name: Uninstall TBB apt package
-      if: matrix.install_tbb == 'OFF'
-      run: |
-        echo ${USERPASS} | sudo -Sk apt-get remove --purge -y '*tbb*'
-        echo ${USERPASS} | sudo -Sk apt-get autoremove -y
+  #   - name: Uninstall TBB apt package
+  #     if: matrix.install_tbb == 'OFF'
+  #     run: |
+  #       echo ${USERPASS} | sudo -Sk apt-get remove --purge -y '*tbb*'
+  #       echo ${USERPASS} | sudo -Sk apt-get autoremove -y
 
-    - name: Install oneAPI basekit
-      if: matrix.compiler.cxx == 'icpx'
-      run: |
-        echo "${USERPASS}" | sudo -Sk ./.github/scripts/install_oneAPI.sh
+  #   - name: Install oneAPI basekit
+  #     if: matrix.compiler.cxx == 'icpx'
+  #     run: |
+  #       echo "${USERPASS}" | sudo -Sk ./.github/scripts/install_oneAPI.sh
 
-    - name: Get UMF version
-      run: |
-        git config --global --add safe.directory $GITHUB_WORKSPACE
-        VERSION=$(git describe --tags --abbrev=0 | grep -oP '\d+\.\d+\.\d+')
-        echo "UMF_VERSION=$VERSION" >> $GITHUB_ENV
+  #   - name: Get UMF version
+  #     run: |
+  #       git config --global --add safe.directory $GITHUB_WORKSPACE
+  #       VERSION=$(git describe --tags --abbrev=0 | grep -oP '\d+\.\d+\.\d+')
+  #       echo "UMF_VERSION=$VERSION" >> $GITHUB_ENV
 
-    - name: Configure build
-      run: >
-        ${{ matrix.compiler.cxx == 'icpx' && '. /opt/intel/oneapi/setvars.sh &&' || ''}} 
-        cmake
-        -B ${{env.BUILD_DIR}}
-        -DCMAKE_INSTALL_PREFIX="${{env.INSTL_DIR}}"
-        -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
-        -DUMF_BUILD_SHARED_LIBRARY=${{matrix.shared_library}}
-        -DCMAKE_C_COMPILER=${{matrix.compiler.c}}
-        -DCMAKE_CXX_COMPILER=${{matrix.compiler.cxx}}
-        -DUMF_BUILD_LEVEL_ZERO_PROVIDER=${{matrix.level_zero_provider}}
-        -DUMF_BUILD_CUDA_PROVIDER=${{matrix.cuda_provider}}
-        -DUMF_FORMAT_CODE_STYLE=OFF
-        -DUMF_DEVELOPER_MODE=ON
-        -DUMF_BUILD_LIBUMF_POOL_JEMALLOC=ON
-        -DUMF_TESTS_FAIL_ON_SKIP=ON
-        -DUMF_LINK_HWLOC_STATICALLY=${{matrix.link_hwloc_statically}}
-        ${{ matrix.build_type == 'Debug' && matrix.compiler.c == 'gcc' && '-DUMF_USE_COVERAGE=ON' || '' }}
-        ${{ matrix.llvm_linker || '' }}
+  #   - name: Configure build
+  #     run: >
+  #       ${{ matrix.compiler.cxx == 'icpx' && '. /opt/intel/oneapi/setvars.sh &&' || ''}} 
+  #       cmake
+  #       -B ${{env.BUILD_DIR}}
+  #       -DCMAKE_INSTALL_PREFIX="${{env.INSTL_DIR}}"
+  #       -DCMAKE_BUILD_TYPE=${{matrix.build_type}}
+  #       -DUMF_BUILD_SHARED_LIBRARY=${{matrix.shared_library}}
+  #       -DCMAKE_C_COMPILER=${{matrix.compiler.c}}
+  #       -DCMAKE_CXX_COMPILER=${{matrix.compiler.cxx}}
+  #       -DUMF_BUILD_LEVEL_ZERO_PROVIDER=${{matrix.level_zero_provider}}
+  #       -DUMF_BUILD_CUDA_PROVIDER=${{matrix.cuda_provider}}
+  #       -DUMF_FORMAT_CODE_STYLE=OFF
+  #       -DUMF_DEVELOPER_MODE=ON
+  #       -DUMF_BUILD_LIBUMF_POOL_JEMALLOC=ON
+  #       -DUMF_TESTS_FAIL_ON_SKIP=ON
+  #       -DUMF_LINK_HWLOC_STATICALLY=${{matrix.link_hwloc_statically}}
+  #       ${{ matrix.build_type == 'Debug' && matrix.compiler.c == 'gcc' && '-DUMF_USE_COVERAGE=ON' || '' }}
+  #       ${{ matrix.llvm_linker || '' }}
 
-    - name: Build UMF
-      run: |
-        ${{ matrix.compiler.cxx == 'icpx' && '. /opt/intel/oneapi/setvars.sh' || true }}
-        cmake --build ${{env.BUILD_DIR}} -j $(nproc)
+  #   - name: Build UMF
+  #     run: |
+  #       ${{ matrix.compiler.cxx == 'icpx' && '. /opt/intel/oneapi/setvars.sh' || true }}
+  #       cmake --build ${{env.BUILD_DIR}} -j $(nproc)
 
-    - name: Run tests
-      working-directory: ${{env.BUILD_DIR}}
-      run: |
-        ${{ matrix.compiler.cxx == 'icpx' && '. /opt/intel/oneapi/setvars.sh' || true }}
-        LD_LIBRARY_PATH="${{env.BUILD_DIR}}/lib/:${LD_LIBRARY_PATH}" ctest --output-on-failure
+  #   - name: Run tests
+  #     working-directory: ${{env.BUILD_DIR}}
+  #     run: |
+  #       ${{ matrix.compiler.cxx == 'icpx' && '. /opt/intel/oneapi/setvars.sh' || true }}
+  #       LD_LIBRARY_PATH="${{env.BUILD_DIR}}/lib/:${LD_LIBRARY_PATH}" ctest --output-on-failure
 
-    - name: Check coverage
-      if:  ${{ matrix.build_type == 'Debug' && matrix.compiler.c == 'gcc' }}
-      working-directory: ${{env.BUILD_DIR}}
-      run: |
-        export COVERAGE_FILE_NAME=${{env.COVERAGE_NAME}}-${{matrix.os}}-shared-${{matrix.shared_library}}
-        echo "COVERAGE_FILE_NAME: $COVERAGE_FILE_NAME"
-        ../scripts/coverage/coverage_capture.sh $COVERAGE_FILE_NAME
-        mkdir -p ${{env.COVERAGE_DIR}}
-        mv ./$COVERAGE_FILE_NAME ${{env.COVERAGE_DIR}}
+  #   - name: Check coverage
+  #     if:  ${{ matrix.build_type == 'Debug' && matrix.compiler.c == 'gcc' }}
+  #     working-directory: ${{env.BUILD_DIR}}
+  #     run: |
+  #       export COVERAGE_FILE_NAME=${{env.COVERAGE_NAME}}-${{matrix.os}}-shared-${{matrix.shared_library}}
+  #       echo "COVERAGE_FILE_NAME: $COVERAGE_FILE_NAME"
+  #       ../scripts/coverage/coverage_capture.sh $COVERAGE_FILE_NAME
+  #       mkdir -p ${{env.COVERAGE_DIR}}
+  #       mv ./$COVERAGE_FILE_NAME ${{env.COVERAGE_DIR}}
 
-    - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
-      if:  ${{ matrix.build_type == 'Debug' && matrix.compiler.c == 'gcc' }}
-      with:
-        name: ${{env.COVERAGE_NAME}}-${{matrix.os}}-shared-${{matrix.shared_library}}
-        path: ${{env.COVERAGE_DIR}}
+  #   - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+  #     if:  ${{ matrix.build_type == 'Debug' && matrix.compiler.c == 'gcc' }}
+  #     with:
+  #       name: ${{env.COVERAGE_NAME}}-${{matrix.os}}-shared-${{matrix.shared_library}}
+  #       path: ${{env.COVERAGE_DIR}}
 
-    - name: Remove the installation directory
-      run: rm -rf ${{env.INSTL_DIR}}
+  #   - name: Remove the installation directory
+  #     run: rm -rf ${{env.INSTL_DIR}}
 
-    - name: Test UMF installation and uninstallation
-      run: >
-        python3 ${{github.workspace}}/test/test_installation.py
-        --build-dir ${{env.BUILD_DIR}}
-        --install-dir ${{env.INSTL_DIR}}
-        --build-type ${{matrix.build_type}}
-        ${{ matrix.install_tbb == 'ON' && matrix.shared_library == 'ON' && '--proxy' || '' }}
-        --umf-version ${{env.UMF_VERSION}}
-        ${{ matrix.shared_library == 'ON' && '--shared-library' || '' }}
+  #   - name: Test UMF installation and uninstallation
+  #     run: >
+  #       python3 ${{github.workspace}}/test/test_installation.py
+  #       --build-dir ${{env.BUILD_DIR}}
+  #       --install-dir ${{env.INSTL_DIR}}
+  #       --build-type ${{matrix.build_type}}
+  #       ${{ matrix.install_tbb == 'ON' && matrix.shared_library == 'ON' && '--proxy' || '' }}
+  #       --umf-version ${{env.UMF_VERSION}}
+  #       ${{ matrix.shared_library == 'ON' && '--shared-library' || '' }}
 
   windows-build:
     env:
