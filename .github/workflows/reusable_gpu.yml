@@ -49,16 +49,16 @@ jobs:
     runs-on: ["DSS-${{inputs.runner}}", "DSS-${{matrix.os}}"]
 
     steps:
-    - name: Check user and PATH
-      run: |
-        [Environment]::UserName
-        echo $Env:UserName
-        echo $env:PATH
-      shell: powershell
-
-    - name: Current location
-      run: pwd
-      shell: powershell
+      - name: Check user and PATH
+        run: |
+          [Environment]::UserName
+          echo $Env:UserName
+          echo $env:PATH
+        shell: powershell
+  
+      - name: Current location
+        run: pwd
+        shell: powershell
       # Set various build params based on OS
       - name: "[Win] Establish build params"
         if : ${{ matrix.os == 'Windows' }}
