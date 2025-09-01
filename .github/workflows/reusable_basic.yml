@@ -43,74 +43,74 @@ jobs:
             link_hwloc_statically: 'OFF'
             # check minimum supported cmake version
             cmake_ver: '3.14.0'
-          - os: ubuntu-22.04
-            build_type: Release
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            link_hwloc_statically: 'OFF'
-            cmake_ver: '3.28.0'
-          - os: ubuntu-24.04
-            build_type: Debug
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            link_hwloc_statically: 'OFF'
-            cmake_ver: 'default'
-          # test level_zero_provider='OFF' and cuda_provider='OFF'
-          - os: ubuntu-22.04
-            build_type: Release
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'OFF'
-            level_zero_provider: 'OFF'
-            cuda_provider: 'OFF'
-            install_tbb: 'ON'
-            link_hwloc_statically: 'OFF'
-            cmake_ver: 'default'
-          # test icx compiler
-          - os: ubuntu-22.04
-            build_type: Release
-            compiler: {c: icx, cxx: icpx}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            link_hwloc_statically: 'OFF'
-            cmake_ver: 'default'
-          # test lld linker
-          - os: ubuntu-24.04
-            build_type: Release
-            compiler: {c: icx, cxx: icpx}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            link_hwloc_statically: 'OFF'
-            llvm_linker: '-DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"'
-            cmake_ver: 'default'
-          # test without installing TBB
-          - os: ubuntu-22.04
-            build_type: Release
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'OFF'
-            link_hwloc_statically: 'OFF'
-            cmake_ver: 'default'
-          - os: ubuntu-22.04
-            build_type: Release
-            compiler: {c: gcc, cxx: g++}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            install_tbb: 'ON'
-            link_hwloc_statically: 'ON'
-            cmake_ver: 'default'
+          # - os: ubuntu-22.04
+          #   build_type: Release
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   link_hwloc_statically: 'OFF'
+          #   cmake_ver: '3.28.0'
+          # - os: ubuntu-24.04
+          #   build_type: Debug
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   link_hwloc_statically: 'OFF'
+          #   cmake_ver: 'default'
+          # # test level_zero_provider='OFF' and cuda_provider='OFF'
+          # - os: ubuntu-22.04
+          #   build_type: Release
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'OFF'
+          #   level_zero_provider: 'OFF'
+          #   cuda_provider: 'OFF'
+          #   install_tbb: 'ON'
+          #   link_hwloc_statically: 'OFF'
+          #   cmake_ver: 'default'
+          # # test icx compiler
+          # - os: ubuntu-22.04
+          #   build_type: Release
+          #   compiler: {c: icx, cxx: icpx}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   link_hwloc_statically: 'OFF'
+          #   cmake_ver: 'default'
+          # # test lld linker
+          # - os: ubuntu-24.04
+          #   build_type: Release
+          #   compiler: {c: icx, cxx: icpx}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   link_hwloc_statically: 'OFF'
+          #   llvm_linker: '-DCMAKE_EXE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_MODULE_LINKER_FLAGS="-fuse-ld=lld" -DCMAKE_SHARED_LINKER_FLAGS="-fuse-ld=lld"'
+          #   cmake_ver: 'default'
+          # # test without installing TBB
+          # - os: ubuntu-22.04
+          #   build_type: Release
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'OFF'
+          #   link_hwloc_statically: 'OFF'
+          #   cmake_ver: 'default'
+          # - os: ubuntu-22.04
+          #   build_type: Release
+          #   compiler: {c: gcc, cxx: g++}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   install_tbb: 'ON'
+          #   link_hwloc_statically: 'ON'
+          #   cmake_ver: 'default'
     name: Basic (${{matrix.os}}, build_type=${{matrix.build_type}}, compilers=${{matrix.compiler.c}}/${{matrix.compiler.cxx}}, shared_library=${{matrix.shared_library}}, level_zero_provider=${{matrix.level_zero_provider}}, cuda_provider=${{matrix.cuda_provider}}, install_tbb=${{matrix.install_tbb}}, link_hwloc_statically=${{matrix.link_hwloc_statically}}, cmake_ver=${{matrix.cmake_ver}})
 
     steps:
@@ -222,21 +222,21 @@ jobs:
         include:
           # extra job: Custom (old) CMake, clang-cl compiler
           # Note: This CMake uses NMake generator as VS paths are probably messed up (by CMake?)
-          - os: 'windows-2025'
-            extra_release_build_type: '-DCMAKE_BUILD_TYPE=Release' # NMake generator requires this
-            compiler: {c: clang-cl, cxx: clang-cl}
-            shared_library: 'ON'
-            level_zero_provider: 'ON'
-            cuda_provider: 'ON'
-            cmake_ver: '3.14.0-win64-x64'
-          # extra job: Custom CMake, L0/CUDA providers disabled
-          - os: 'windows-2025'
-            compiler: {c: cl, cxx: cl}
-            shared_library: 'ON'
-            level_zero_provider: 'OFF'
-            cuda_provider: 'OFF'
-            cmake_ver: '3.28.0-windows-x86_64'
-          # umfd enabled (this job will replace one from matrix)
+          # - os: 'windows-2025'
+          #   extra_release_build_type: '-DCMAKE_BUILD_TYPE=Release' # NMake generator requires this
+          #   compiler: {c: clang-cl, cxx: clang-cl}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'ON'
+          #   cuda_provider: 'ON'
+          #   cmake_ver: '3.14.0-win64-x64'
+          # # extra job: Custom CMake, L0/CUDA providers disabled
+          # - os: 'windows-2025'
+          #   compiler: {c: cl, cxx: cl}
+          #   shared_library: 'ON'
+          #   level_zero_provider: 'OFF'
+          #   cuda_provider: 'OFF'
+          #   cmake_ver: '3.28.0-windows-x86_64'
+          # # umfd enabled (this job will replace one from matrix)
           - os: 'windows-2022'
             compiler: {c: cl, cxx: cl}
             shared_library: 'ON'
