@@ -214,7 +214,7 @@ jobs:
       VCPKG_PATH_BIN: "${{github.workspace}}/vcpkg/packages/hwloc_x64-windows/bin;${{github.workspace}}/vcpkg/packages/tbb_x64-windows/bin;${{github.workspace}}/vcpkg/packages/jemalloc_x64-windows/bin"
     strategy:
       matrix:
-        os: ['windows-2022', 'windows-2025']
+        os: ['windows-2022']
         compiler: [{c: cl, cxx: cl}]
         shared_library: ['ON', 'OFF']
         level_zero_provider: ['ON']
@@ -251,9 +251,15 @@ jobs:
           cmake_ver=${{matrix.cmake_ver || 'default'}}, 
           umfd=${{matrix.umfd_lib || 'OFF'}})
           extra=${{matrix.extra_release_build_type || ''}}
-    runs-on: ${{matrix.os}}
+    runs-on: ["self-hosted", ${{matrix.os}}]
 
     steps:
+    - name: Check user and PATH
+      run: |
+        [Environment]::UserName
+        echo $Env:UserName
+        echo $env:PATH
+      shell: powershell
     - name: Checkout
       uses: actions/checkout@08c6903cd8c0fde910a37f88322edcfb5dd907a8 # v5.0.0
       with:
