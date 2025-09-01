@@ -114,8 +114,10 @@ jobs:
 
       - name: "[Win] Install dependencies"
         if: matrix.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
-        run: vcpkg install hwloc jemalloc tbb --classic
-          # vcpkg install --triplet x64-windows
+        run: vcpkg install --triplet x64-windows
+        # run: vcpkg install hwloc jemalloc tbb --classic
+        working-directory: ${{ github.workspace }}
+          # 
 
       # note: disable all providers except the one being tested
       # '-DCMAKE_SUPPRESS_REGENERATION=ON' is the WA for the error: "CUSTOMBUILD : CMake error : Cannot restore timestamp"
@@ -142,9 +144,11 @@ jobs:
           -DUMF_TESTS_FAIL_ON_SKIP=ON
           ${{ matrix.os == 'Ubuntu' && '-DUMF_USE_COVERAGE=ON' || '' }}
           ${{ matrix.os == 'Windows' && '-DCMAKE_SUPPRESS_REGENERATION=ON' || '' }}
+        working-directory: ${{ github.workspace }}
 
       - name: Build UMF (Debug)
         run: cmake --build ${{env.BUILD_DEBUG_DIR}} --config Debug -j ${{env.PROCS}}
+        working-directory: ${{ github.workspace }}
 
       - name: Run tests (Debug)
         working-directory: ${{env.BUILD_DEBUG_DIR}}
@@ -176,9 +180,11 @@ jobs:
           -DUMF_BUILD_${{inputs.provider}}_PROVIDER=ON
           -DUMF_TESTS_FAIL_ON_SKIP=ON
           ${{ matrix.os == 'Windows' && '-DCMAKE_SUPPRESS_REGENERATION=ON' || '' }}
+        working-directory: ${{ github.workspace }}
 
       - name: Build UMF (Release)
         run: cmake --build ${{env.BUILD_RELEASE_DIR}} --config Release -j ${{env.PROCS}}
+        working-directory: ${{ github.workspace }}
 
       - name: Run tests (Release)
         working-directory: ${{env.BUILD_RELEASE_DIR}}
