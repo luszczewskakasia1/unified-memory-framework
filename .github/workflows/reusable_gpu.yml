@@ -62,6 +62,7 @@ jobs:
         
       # Set various build params based on OS
       - name: "[Win] Establish build params"
+        shell: cmd
         if : ${{ matrix.os == 'Windows' }}
         run: |
           echo "C_COMPILER=cl" >> $env:GITHUB_ENV
@@ -119,8 +120,8 @@ jobs:
       - name: "[Win] Install dependencies"
         if: matrix.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
         working-directory: ${{ github.workspace }}
-        # run: vcpkg install --triplet x64-windows
-        run: vcpkg install hwloc jemalloc tbb --classic
+        run: vcpkg install --triplet x64-windows
+        # run: vcpkg install hwloc jemalloc tbb --classic
         
           # 
 
@@ -150,7 +151,7 @@ jobs:
           -DUMF_TESTS_FAIL_ON_SKIP=ON
           ${{ matrix.os == 'Ubuntu' && '-DUMF_USE_COVERAGE=ON' || '' }}
           ${{ matrix.os == 'Windows' && '-DCMAKE_SUPPRESS_REGENERATION=ON' || '' }}
-          ${{ github.workspace }}
+      # ${{ github.workspace }}
         
 
       - name: Build UMF (Debug)
