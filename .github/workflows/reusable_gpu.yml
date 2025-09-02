@@ -126,8 +126,10 @@ jobs:
 
       - name: "[Win] Install dependencies"
         if: matrix.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
-        working-directory: C:\actions-runner\_work\unified-memory-framework\unified-memory-framework
-        run: vcpkg install --triplet x64-windows
+        # working-directory: C:\actions-runner\_work\unified-memory-framework\unified-memory-framework
+        run: |
+          cd C:\actions-runner\_work\unified-memory-framework\unified-memory-framework
+          vcpkg install --triplet x64-windows
         # run: vcpkg install hwloc jemalloc tbb --classic
         
           # 
@@ -158,7 +160,7 @@ jobs:
           -DUMF_TESTS_FAIL_ON_SKIP=ON
           ${{ matrix.os == 'Ubuntu' && '-DUMF_USE_COVERAGE=ON' || '' }}
           ${{ matrix.os == 'Windows' && '-DCMAKE_SUPPRESS_REGENERATION=ON' || '' }}
-      # ${{ github.workspace }}
+          ${{ github.workspace }}
         
 
       - name: Build UMF (Debug)
@@ -167,11 +169,15 @@ jobs:
 
       - name: Run tests (Debug)
         working-directory: ${{env.BUILD_DEBUG_DIR}}
-        run: ctest -C Debug --output-on-failure --test-dir test
+        run: |
+          cd C:\actions-runner\_work\unified-memory-framework\unified-memory-framework
+          ctest -C Debug --output-on-failure --test-dir test
 
       - name: Run examples (Debug)
         working-directory: ${{env.BUILD_DEBUG_DIR}}
-        run: ctest --output-on-failure --test-dir examples -C Debug
+        run: |
+          cd C:\actions-runner\_work\unified-memory-framework\unified-memory-framework
+          ctest --output-on-failure --test-dir examples -C Debug
 
       - name: Configure build (Release)
         run: >
