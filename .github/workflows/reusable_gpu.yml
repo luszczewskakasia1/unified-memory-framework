@@ -47,9 +47,9 @@ jobs:
         os: ${{ fromJSON(inputs.os)}}
     name: GPU (${{matrix.os}}, shared=${{matrix.shared_library}})
     runs-on: ["DSS-${{inputs.runner}}", "DSS-${{matrix.os}}"]
-    defaults:
-      run:
-        working-directory: ${{github.workspace}}
+    # defaults:
+    #   run:
+    #     working-directory: ${{github.workspace}}
 
     steps:
       # - name: Set PowerShell to RemoteSigned
@@ -126,7 +126,7 @@ jobs:
 
       - name: "[Win] Install dependencies"
         if: matrix.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
-        working-directory: ${{ github.workspace }}
+        working-directory: C:\actions-runner\_work\unified-memory-framework\unified-memory-framework
         run: vcpkg install --triplet x64-windows
         # run: vcpkg install hwloc jemalloc tbb --classic
         
@@ -135,7 +135,7 @@ jobs:
       # note: disable all providers except the one being tested
       # '-DCMAKE_SUPPRESS_REGENERATION=ON' is the WA for the error: "CUSTOMBUILD : CMake error : Cannot restore timestamp"
       - name: Configure build (Debug)
-        working-directory: ${{ github.workspace }}
+        working-directory: C:\actions-runner\_work\unified-memory-framework\unified-memory-framework
         run: >
           cmake
           -DCMAKE_PREFIX_PATH="${{env.VCPKG_PATH}};${{env.EXTRA_CMAKE_PATH}}"
