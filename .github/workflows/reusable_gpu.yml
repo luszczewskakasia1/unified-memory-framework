@@ -49,21 +49,19 @@ jobs:
     runs-on: ["DSS-${{inputs.runner}}", "DSS-${{matrix.os}}"]
 
     steps:
-      - name: List vcpkg directory contents
-        if: matrix.os == 'Windows'
+      - name: Set PowerShell to RemoteSigned
+        run: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+        shell: pwsh
+      - name: Check user and PATH
         run: |
-          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
-          ls "${{github.workspace}}\vcpkg"
-      # - name: Check user and PATH
-      #   run: |
-      #     [Environment]::UserName
-      #     echo $Env:UserName
-      #     echo $env:PATH
-      #   shell: powershell
+          [Environment]::UserName
+          echo $Env:UserName
+          echo $env:PATH
+        shell: powershell
   
-      # - name: Current location
-      #   run: pwd
-      #   shell: powershell
+      - name: Current location
+        run: pwd
+        shell: powershell
         
       # Set various build params based on OS
       - name: "[Win] Establish build params"
