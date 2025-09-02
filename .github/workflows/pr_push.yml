@@ -34,7 +34,7 @@ jobs:
     needs: [FastBuild]
     uses: ./.github/workflows/reusable_multi_numa.yml
   L0:
-    needs: [Build]
+    needs: [FastBuild]
     uses: ./.github/workflows/reusable_gpu.yml
     with:
       provider: "LEVEL_ZERO"
