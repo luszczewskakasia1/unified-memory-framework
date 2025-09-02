@@ -51,7 +51,8 @@ jobs:
     steps:
       - name: Set PowerShell to RemoteSigned
         run: Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
-        shell: pwsh
+        shell: powershell
+        
       - name: Check user and PATH
         run: |
           [Environment]::UserName
