@@ -59,6 +59,7 @@ jobs:
       - name: Current location
         run: pwd
         shell: powershell
+        
       # Set various build params based on OS
       - name: "[Win] Establish build params"
         if : ${{ matrix.os == 'Windows' }}
@@ -111,6 +112,9 @@ jobs:
       - name: Checks
         run: |
           ls C:\actions-runner\_work\unified-memory-framework\unified-memory-framework\vcpkg
+      - name: Checks 2
+        run: |
+          ls C:\actions-runner\_work\unified-memory-framework\unified-memory-framework
 
       - name: "[Win] Install dependencies"
         if: matrix.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
