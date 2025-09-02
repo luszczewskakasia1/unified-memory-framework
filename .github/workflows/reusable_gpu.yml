@@ -170,13 +170,13 @@ jobs:
       - name: Run tests (Debug)
         working-directory: ${{env.BUILD_DEBUG_DIR}}
         run: |
-          cd C:\actions-runner\_work\unified-memory-framework\unified-memory-framework
+          cd C:\actions-runner\_work\unified-memory-framework\unified-memory-framework\debug\build
           ctest -C Debug --output-on-failure --test-dir test
 
       - name: Run examples (Debug)
         working-directory: ${{env.BUILD_DEBUG_DIR}}
         run: |
-          cd C:\actions-runner\_work\unified-memory-framework\unified-memory-framework
+          cd C:\actions-runner\_work\unified-memory-framework\unified-memory-framework\debug\build
           ctest --output-on-failure --test-dir examples -C Debug
 
       - name: Configure build (Release)
@@ -201,7 +201,7 @@ jobs:
           -DUMF_BUILD_${{inputs.provider}}_PROVIDER=ON
           -DUMF_TESTS_FAIL_ON_SKIP=ON
           ${{ matrix.os == 'Windows' && '-DCMAKE_SUPPRESS_REGENERATION=ON' || '' }}
-        working-directory: ${{ github.workspace }}
+          ${{ github.workspace }}
 
       - name: Build UMF (Release)
         run: cmake --build ${{env.BUILD_RELEASE_DIR}} --config Release -j ${{env.PROCS}}
