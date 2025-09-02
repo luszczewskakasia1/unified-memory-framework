@@ -49,6 +49,11 @@ jobs:
     runs-on: ["DSS-${{inputs.runner}}", "DSS-${{matrix.os}}"]
 
     steps:
+      - name: List vcpkg directory contents
+        if: matrix.os == 'Windows'
+        run: |
+          Set-ExecutionPolicy -Scope Process -ExecutionPolicy Bypass
+          ls "${{github.workspace}}\vcpkg"
       # - name: Check user and PATH
       #   run: |
       #     [Environment]::UserName
