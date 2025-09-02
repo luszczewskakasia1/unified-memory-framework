@@ -114,14 +114,16 @@ jobs:
 
       - name: "[Win] Install dependencies"
         if: matrix.os == 'Windows' && steps.cache.outputs.cache-hit != 'true'
-        # run: vcpkg install --triplet x64-windows
-        run: vcpkg install hwloc jemalloc tbb --classic
         working-directory: ${{ github.workspace }}
+        run: vcpkg install --triplet x64-windows
+        # run: vcpkg install hwloc jemalloc tbb --classic
+        
           # 
 
       # note: disable all providers except the one being tested
       # '-DCMAKE_SUPPRESS_REGENERATION=ON' is the WA for the error: "CUSTOMBUILD : CMake error : Cannot restore timestamp"
       - name: Configure build (Debug)
+        working-directory: ${{ github.workspace }}
         run: >
           cmake
           -DCMAKE_PREFIX_PATH="${{env.VCPKG_PATH}};${{env.EXTRA_CMAKE_PATH}}"
@@ -144,7 +146,8 @@ jobs:
           -DUMF_TESTS_FAIL_ON_SKIP=ON
           ${{ matrix.os == 'Ubuntu' && '-DUMF_USE_COVERAGE=ON' || '' }}
           ${{ matrix.os == 'Windows' && '-DCMAKE_SUPPRESS_REGENERATION=ON' || '' }}
-        working-directory: ${{ github.workspace }}
+          ${{ github.workspace }}
+        
 
       - name: Build UMF (Debug)
         run: cmake --build ${{env.BUILD_DEBUG_DIR}} --config Debug -j ${{env.PROCS}}
